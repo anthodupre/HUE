@@ -72,6 +72,12 @@ input[type=range]{ width:100%; accent-color:var(--ink); margin:0; }
 :focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
 .conn{ display:flex; flex-direction:column; align-items:flex-start; gap:.5rem; }
 
+.notice.pair{ border-left-color:var(--warn); margin-top:1.25rem; }
+.pair strong{ display:block; font-size:1rem; margin-bottom:.25rem; }
+.pair p{ margin:0 0 .5rem; }
+.pair ol{ margin:.5rem 0 .75rem; padding-left:1.2rem; }
+.pair li{ margin-bottom:.45rem; }
+.pair-actions{ display:flex; flex-wrap:wrap; gap:.5rem; }
 .notice{ background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--danger); padding:.75rem 1rem; border-radius:var(--r-s); font-size:.9375rem; margin:1rem 0 0; }
 
 details.tips{ margin-top:1.75rem; font-size:.9375rem; }
@@ -190,6 +196,15 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       <button id="allBtn" class="btn link">Light not listed? Show all Bluetooth devices</button>
       <button id="disconnectBtn" class="btn" hidden>Disconnect</button>
     </div>
+    <div id="pairHelp" class="notice pair" role="alert" hidden>
+      <strong>Pair the light once, then it works</strong>
+      <p>The light accepted the connection but refuses every command, because it doesn’t trust this <span id="pairDevice">computer</span> yet. Hue lights only accept a new device while they are discoverable.</p>
+      <ol id="pairSteps"></ol>
+      <div class="pair-actions">
+        <button id="pairRetry" class="btn primary small">I did it, connect again</button>
+        <button id="pairHide" class="btn small">Hide</button>
+      </div>
+    </div>
     <p id="unsupported" class="notice" hidden>This browser can’t use Bluetooth. Open this page in Chrome or Edge on a computer with Bluetooth turned on.</p>
 
     <details class="tips">
@@ -197,7 +212,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       <ul>
         <li>Use Chrome or Edge on your computer, with Bluetooth turned on.</li>
         <li>Close the Hue app on your phone. The light may accept only one connection at a time.</li>
-        <li>If the light doesn’t appear, make it discoverable from the Hue app (in Bluetooth mode, it’s in the voice assistant settings), then try again within a few minutes.</li>
+        <li>Before connecting from a new computer or phone, make the light discoverable from the Hue app (Settings → Voice assistants → Amazon Alexa or Google Home → Make discoverable). The light only accepts a new device for a few minutes after that.</li>
         <li>If it connects but nothing changes, run the test in Diagnostics. It tells you whether the light refuses the commands and how to fix it on your system.</li>
         <li>On Windows, the light must be paired in Settings → Bluetooth &amp; devices → Add device while it is discoverable, before you connect here.</li>
         <li>Schedules and the timer run only while this page is open and your computer is awake.</li>
@@ -327,7 +342,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v1.2', date: 'Nov 5, 2026', note: 'version label' };
+  const VERSION = { name: 'v1.3', date: 'Nov 5, 2026', note: 'pairing guide' };
   document.getElementById('version').textContent = 'Version ' + VERSION.name + ' · ' + VERSION.date;
 
   // ---------- Hue Bluetooth (GATT) ----------
@@ -429,6 +444,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     addKelvinWrap: $('addKelvinWrap'), addKelvin: $('addKelvin'), addKelvinOut: $('addKelvinOut'),
     addBriWrap: $('addBriWrap'), addBri: $('addBri'), addBriOut: $('addBriOut'),
     addDays: $('addDays'), addError: $('addError'), addBtn: $('addBtn'), catchUp: $('catchUp'),
+    pairHelp: $('pairHelp'), pairSteps: $('pairSteps'), pairDevice: $('pairDevice'), pairRetry: $('pairRetry'), pairHide: $('pairHide'),
     diagBtn: $('diagBtn'), diagCopy: $('diagCopy'), diagOut: $('diagOut'),
     timerDisplay: $('timerDisplay'), timerChips: $('timerChips'), timerCustom: $('timerCustom'),
     alertColor: $('alertColor'), afterAlert: $('afterAlert'), beep: $('beep'), timerBtn: $('timerBtn'), testFlash: $('testFlash'),
@@ -447,6 +463,51 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     els.log.prepend(li);
     while (els.log.children.length > 40) els.log.lastChild.remove();
   }
+
+  // ---------- Pairing guide ----------
+  const DISCOVERABLE = 'On your phone, open the Hue app and make the light discoverable: Settings → Voice assistants → Amazon Alexa (or Google Home) → Make discoverable. The wording can differ slightly. The light stays discoverable for a few minutes, so do the next steps right away. Then fully close the Hue app.';
+  function pairSteps(os) {
+    if (os === 'Windows') return [
+      DISCOVERABLE,
+      'On Windows 11, open Settings → Bluetooth & devices → Devices, and set “Bluetooth devices discovery” to Advanced. Without this, Windows may hide the light.',
+      'Still in Bluetooth & devices, click Add device → Bluetooth. Choose the Hue light and wait until Windows says it is connected or paired. If the light was already in your devices, remove it first, then add it again.',
+      'Come back here and click “I did it, connect again”. If the light appears twice in the list, choose the other entry.'
+    ];
+    if (os === 'Mac') return [
+      DISCOVERABLE,
+      'Right away, click “I did it, connect again” and choose the light. macOS should show a Bluetooth pairing request: accept it.',
+      'If no request appears, open System Settings → Bluetooth. If the light is listed, remove it (Forget This Device) and repeat both steps.'
+    ];
+    if (os === 'Android') return [
+      DISCOVERABLE,
+      'Click “I did it, connect again” and choose the light. Android asks to pair: tap Pair.',
+      'If nothing is asked, pair it in Settings → Connected devices → Pair new device, then connect again here.'
+    ];
+    if (os === 'Linux') return [
+      DISCOVERABLE,
+      'In a terminal, run bluetoothctl, then: scan on, wait for the light, then pair followed by its address, then trust followed by its address.',
+      'Come back here and click “I did it, connect again”.'
+    ];
+    return [
+      DISCOVERABLE,
+      'Pair the light in this device’s Bluetooth settings while it is discoverable.',
+      'Come back here and click “I did it, connect again”.'
+    ];
+  }
+  const EXTRA_STEPS = [
+    'Still refused? Turn the lamp off at the wall for 10 seconds, turn it back on, and repeat from step 1.',
+    'Easiest alternative: Chrome on an Android phone usually pairs on its own. On iPhone, use the free Bluefy browser, since Safari has no Bluetooth for web pages.'
+  ];
+  const isAuthError = e => !!e && (e.name === 'SecurityError' || /not authorized|authenticat|encrypt|insufficient/i.test(e.message || ''));
+  let pairHidden = false;
+  function showPairHelp() {
+    if (pairHidden) return;
+    const os = osName();
+    els.pairDevice.textContent = os === 'Android' ? 'phone' : 'computer';
+    els.pairSteps.replaceChildren(...[...pairSteps(os), ...EXTRA_STEPS].map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
+    if (els.pairHelp.hidden) { els.pairHelp.hidden = false; els.pairHelp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+  function hidePairHelp() { els.pairHelp.hidden = true; }
 
   // ---------- Connection ----------
   let device = null, chars = {}, ready = false, wantConnected = false, connecting = false;
@@ -570,8 +631,14 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         }
       }
       saveLight(); render();
+      hidePairHelp();
     } catch (e) {
-      log('Couldn’t read the light’s current state (' + errText(e) + '). If changes don’t work either, run the test in Diagnostics.', true);
+      if (isAuthError(e)) {
+        log('The light is connected but not paired with this device yet, so it ignores commands. Follow the pairing steps shown under the lamp.', true);
+        showPairHelp();
+      } else {
+        log('Couldn’t read the light’s current state (' + errText(e) + '). If changes don’t work either, run the test in Diagnostics.', true);
+      }
     }
   }
 
@@ -617,6 +684,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         if (!c) continue;
         try {
           await writeChar(c, bytes);
+          hidePairHelp();
           if (!confirmedWrite) { confirmedWrite = true; log('The light accepted the change. If it still didn’t react, run the test in Diagnostics.', false, 'ok'); }
         } catch (e) {
           if (!ready) break;
@@ -626,9 +694,10 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
             continue;
           }
           const t = errText(e);
+          if (isAuthError(e)) { showPairHelp(); if (seenErrors.has(t)) continue; }
           if (!seenErrors.has(t)) {
             seenErrors.add(t);
-            log('The light refused a change (' + t + '). Run the test in Diagnostics for what to do next.', true);
+            log('The light refused a change (' + t + ').' + (isAuthError(e) ? ' It needs to be paired first: see the steps under the lamp.' : ' Run the test in Diagnostics for what to do next.'), true);
           }
         }
       }
@@ -1093,15 +1162,9 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       const authLike = /auth|permit|not allowed|security|insufficient|encrypt|unknown reason|gatt operation failed|gatt error/.test(msgs);
       if ((refused && authLike) || (refused && !accepted)) {
         say('The light refused the commands. That almost always means it is not paired (bonded) with this ' + (os === 'Android' ? 'phone' : 'computer') + '.');
-        if (os === 'Windows') {
-          say('Fix on Windows:\n 1. Close this page and the Hue app on your phone.\n 2. In the Hue app, make the light discoverable (Bluetooth mode: Settings → Voice assistants → Amazon Alexa or Google Home → Make visible).\n 3. Within 5 minutes, open Windows Settings → Bluetooth & devices → Add device → Bluetooth, and pick the light.\n 4. Open this page again and connect. Choose the light even if it shows twice.');
-        } else if (os === 'Mac') {
-          say('Fix on Mac:\n 1. In System Settings → Bluetooth, remove the light if it is listed (Forget This Device).\n 2. In the Hue app, make the light discoverable (Settings → Voice assistants → Amazon Alexa or Google Home → Make visible).\n 3. Close the Hue app, reload this page, connect, and run the test again. macOS should then ask to pair. Accept it.');
-        } else if (os === 'Android') {
-          say('Fix on Android:\n 1. Make the light discoverable from the Hue app, then fully close the Hue app.\n 2. Connect here again. Android should ask to pair: accept it.\n 3. If no prompt appears, pair the light in Android Settings → Connected devices → Pair new device.');
-        } else {
-          say('Pair the light in your system’s Bluetooth settings while it is discoverable from the Hue app, then connect again.');
-        }
+        say('How to fix it on ' + os + ':');
+        [...pairSteps(os), ...EXTRA_STEPS].forEach((t, i) => say(' ' + (i + 1) + '. ' + t));
+        showPairHelp();
       } else if (accepted) {
         say('The light accepted every command. If it also turned off and on, the page works: try the color controls again.');
         say('If it accepted but the light did NOT react, another phone or tablet may still control it, or the light is reset to factory state. Close the Hue app on every device, power the lamp off and on at the wall, then run the test again.');
@@ -1119,6 +1182,16 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     }
   }
   els.diagBtn.addEventListener('click', runDiag);
+  els.pairHide.addEventListener('click', () => { pairHidden = true; hidePairHelp(); });
+  els.pairRetry.addEventListener('click', async () => {
+    pairHidden = false; hidePairHelp();
+    seenErrors = new Set();
+    wantConnected = false;
+    try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
+    ready = false;
+    await sleep(300);
+    connect(false);
+  });
   els.diagCopy.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(els.diagOut.textContent); els.diagCopy.textContent = 'Copied'; }
     catch { const r = document.createRange(); r.selectNodeContents(els.diagOut); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); els.diagCopy.textContent = 'Selected, press Ctrl+C'; }
