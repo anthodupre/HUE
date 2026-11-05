@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Iris</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%A1%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#6c8cff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wall:#e7e8ec; --panel:#f2f3f6; --ink:#1c2230; --muted:#5b6372; --line:#d2d6dd; --field:#ffffff; --danger:#b42318; --ok:#1f9d5c; --warn:#c98a00;
+  --lamp:#6c8cff; --glow:.8;
+  --r-s:8px; --r-m:14px;
+  font-family:"Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --wall:#15171c; --panel:#1c1f26; --ink:#e9ebef; --muted:#9aa1ad; --line:#2d313a; --field:#23262e; --danger:#ff8a80; --ok:#4fd18b; --warn:#f0b429; color-scheme:dark; }
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ background:var(--wall); color:var(--ink); font-size:16px; line-height:1.5; min-height:100vh; }
+[hidden]{ display:none !important; }
+
+/* The page is the wall the lamp washes */
+.halo{ position:fixed; inset:0; pointer-events:none; z-index:0; transition:opacity .6s ease;
+  background:radial-gradient(65vmax 65vmax at 16% 30%, color-mix(in srgb, var(--lamp) calc(var(--glow) * 36%), transparent), transparent 70%); }
+body[data-on="false"] .halo{ opacity:0; }
+
+.app{ position:relative; z-index:1; display:grid; gap:2.5rem; max-width:1120px; margin:0 auto;
+  padding:max(1.5rem, env(safe-area-inset-top)) 1.25rem max(2.5rem, env(safe-area-inset-bottom)); }
+@media (min-width:900px){
+  .app{ grid-template-columns:340px minmax(0,1fr); gap:4.5rem; padding-top:3rem; }
+  .lamp-col{ position:sticky; top:2.5rem; align-self:start; }
+}
+
+/* Lamp column */
+.brand{ display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.brand h1{ font-size:2.25rem; font-weight:600; letter-spacing:-.02em; margin:0; line-height:1.1; }
+.status{ font-size:.875rem; padding:.25rem .75rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; background:var(--wall); white-space:nowrap; max-width:60%; overflow:hidden; text-overflow:ellipsis; }
+.status::before{ content:""; flex:none; width:.5rem; height:.5rem; border-radius:50%; background:var(--muted); }
+.status[data-state="on"]::before{ background:var(--ok); }
+.status[data-state="busy"]::before, .status[data-state="retry"]::before{ background:var(--warn); }
+
+.orb{ display:block; margin:2.25rem auto 1rem; width:min(240px, 62vw); aspect-ratio:1; border-radius:50%; border:0; padding:0; cursor:pointer;
+  background:radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--lamp) 50%, white) 0%, var(--lamp) 48%, color-mix(in srgb, var(--lamp) 68%, black) 100%);
+  box-shadow:0 0 calc(30px + var(--glow) * 90px) calc(var(--glow) * 16px) color-mix(in srgb, var(--lamp) 55%, transparent), inset 0 -12px 30px rgba(0,0,0,.18);
+  filter:brightness(calc(.55 + var(--glow) * .45));
+  transition:box-shadow .5s ease, filter .3s ease, transform .15s ease; }
+.orb:active{ transform:scale(.98); }
+body[data-on="false"] .orb{ background:radial-gradient(circle at 50% 40%, var(--panel), var(--line)); box-shadow:inset 0 -10px 26px rgba(0,0,0,.14); filter:none; }
+.orb-hint{ text-align:center; color:var(--muted); font-size:.875rem; margin:0 0 1.75rem; }
+
+.field{ display:block; margin:0 0 1.5rem; }
+.field-row{ display:flex; justify-content:space-between; gap:1rem; font-size:.9375rem; margin-bottom:.4rem; }
+.field-row output{ color:var(--muted); font-variant-numeric:tabular-nums; }
+input[type=range]{ width:100%; accent-color:var(--ink); margin:0; }
+
+.btn{ font:inherit; font-size:.9375rem; font-weight:600; border-radius:999px; padding:.65rem 1.2rem; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; }
+.btn:hover:not(:disabled){ border-color:var(--muted); }
+.btn.primary{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
+.btn.small{ padding:.35rem .85rem; font-size:.875rem; }
+.btn.link{ border:0; padding:.2rem 0; font-weight:500; color:var(--muted); text-decoration:underline; text-underline-offset:3px; border-radius:4px; }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
+.conn{ display:flex; flex-direction:column; align-items:flex-start; gap:.5rem; }
+
+.notice{ background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--danger); padding:.75rem 1rem; border-radius:var(--r-s); font-size:.9375rem; margin:1rem 0 0; }
+
+details.tips{ margin-top:1.75rem; font-size:.9375rem; }
+details.tips summary{ cursor:pointer; font-weight:600; border-radius:4px; }
+details.tips ul{ padding-left:1.15rem; margin:.75rem 0 0; color:var(--muted); }
+details.tips li{ margin-bottom:.5rem; }
+
+/* Panels */
+.panels section{ padding:2.25rem 0; border-top:1px solid var(--line); }
+.panels section:first-child{ border-top:0; padding-top:.25rem; }
+h2{ font-size:1.375rem; font-weight:600; letter-spacing:-.01em; margin:0 0 .25rem; }
+h3{ font-size:1rem; font-weight:600; margin:1.75rem 0 .75rem; }
+.sub{ color:var(--muted); margin:0 0 1.25rem; max-width:62ch; }
+
+.seg{ display:inline-flex; padding:3px; border-radius:999px; background:var(--panel); border:1px solid var(--line); margin:1rem 0 1.25rem; }
+.seg button{ font:inherit; font-weight:600; font-size:.9375rem; border:0; background:transparent; color:var(--muted); padding:.45rem 1.15rem; border-radius:999px; cursor:pointer; }
+.seg button[aria-selected="true"]{ background:var(--field); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.1); }
+
+.picker{ display:flex; align-items:center; gap:1rem; }
+input[type=color]{ -webkit-appearance:none; appearance:none; width:56px; height:56px; border:1px solid var(--line); border-radius:50%; padding:0; background:none; cursor:pointer; flex:none; }
+input[type=color]::-webkit-color-swatch-wrapper{ padding:0; }
+input[type=color]::-webkit-color-swatch{ border:0; border-radius:50%; }
+input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
+.hex{ font-weight:500; font-variant-numeric:tabular-nums; }
+
+.swatches{ display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:.75rem; }
+.swatch-wrap{ position:relative; }
+.swatch{ font:inherit; width:100%; background:none; border:0; color:var(--ink); display:flex; flex-direction:column; align-items:center; gap:.45rem; padding:.4rem .25rem; border-radius:var(--r-s); cursor:pointer; font-size:.8125rem; text-align:center; line-height:1.25; }
+.swatch .dot{ width:44px; height:44px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--line), 0 6px 16px -6px var(--c); transition:transform .15s ease; }
+.swatch:hover .dot{ transform:scale(1.07); }
+.remove{ position:absolute; top:0; right:4px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--field); color:var(--muted); font:inherit; font-size:.8rem; line-height:1; cursor:pointer; display:grid; place-items:center; padding:0; }
+.remove:hover{ color:var(--danger); border-color:var(--danger); }
+.fav-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1.75rem 0 .75rem; }
+.fav-head h3{ margin:0; }
+.empty{ color:var(--muted); font-size:.9375rem; margin:.25rem 0 0; }
+
+/* Schedule */
+.sched-list{ list-style:none; padding:0; margin:0 0 1.25rem; }
+.sched-item{ display:flex; flex-wrap:wrap; align-items:center; gap:.75rem 1rem; padding:.9rem 0; border-bottom:1px solid var(--line); }
+.sched-item:first-child{ border-top:1px solid var(--line); }
+.sched-item .dot{ width:28px; height:28px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--line); flex:none; }
+.sched-item .dot.off{ background:transparent; border:2px dashed var(--muted); box-shadow:none; }
+.sched-text{ flex:1 1 180px; min-width:0; }
+.sched-time{ font-size:1.125rem; font-weight:600; font-variant-numeric:tabular-nums; }
+.sched-desc{ color:var(--muted); font-size:.875rem; }
+.sched-item[data-enabled="false"] .sched-text, .sched-item[data-enabled="false"] .dot{ opacity:.45; }
+.sched-actions{ display:flex; align-items:center; gap:.5rem; }
+
+.switch{ -webkit-appearance:none; appearance:none; width:40px; height:24px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; margin:0; transition:background .2s ease; flex:none; }
+.switch::after{ content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--field); box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform .2s ease; }
+.switch:checked{ background:var(--ink); }
+.switch:checked::after{ transform:translateX(16px); }
+
+.sched-add{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-m); padding:1.25rem; display:grid; gap:1.1rem; }
+.sched-add h3{ margin:0; }
+.row{ display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; }
+.lbl{ display:flex; flex-direction:column; gap:.35rem; font-size:.875rem; color:var(--muted); }
+.lbl.grow{ flex:1 1 200px; }
+input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; color:var(--ink); background:var(--field); border:1px solid var(--line); border-radius:var(--r-s); padding:.5rem .65rem; min-height:42px; }
+.lbl input[type=color]{ width:42px; height:42px; }
+.days{ display:flex; flex-wrap:wrap; gap:.4rem; }
+.day{ position:relative; }
+.day input{ position:absolute; opacity:0; width:1px; height:1px; }
+.day span{ display:inline-grid; place-items:center; min-width:2.75rem; height:2.25rem; padding:0 .55rem; border-radius:999px; border:1px solid var(--line); font-size:.875rem; font-weight:600; cursor:pointer; color:var(--muted); background:var(--field); }
+.day input:checked + span{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
+.day input:focus-visible + span{ outline:2px solid var(--ink); outline-offset:2px; }
+.error{ color:var(--danger); font-size:.875rem; margin:0; }
+.check{ display:flex; gap:.6rem; align-items:flex-start; font-size:.9375rem; margin-top:1.25rem; cursor:pointer; max-width:62ch; }
+.check input{ margin:.25rem 0 0; accent-color:var(--ink); width:1.05rem; height:1.05rem; flex:none; }
+
+/* Timer */
+.timer-display{ font-size:clamp(3rem, 9vw, 4.5rem); font-weight:500; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1; margin:1rem 0 1.25rem; }
+.chips{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:1.25rem; }
+.chip{ font:inherit; font-size:.875rem; font-weight:600; min-width:3.25rem; height:2.25rem; padding:0 .8rem; border-radius:999px; border:1px solid var(--line); background:var(--field); color:var(--muted); cursor:pointer; }
+.chip[aria-pressed="true"]{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
+.chips input[type=number]{ width:5.5rem; min-height:2.25rem; padding:.25rem .6rem; }
+.timer-opts{ display:flex; flex-wrap:wrap; gap:.6rem .75rem; align-items:center; font-size:.9375rem; margin-bottom:.25rem; }
+.timer-opts input[type=color]{ width:34px; height:34px; }
+.timer-row{ display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; margin-top:1.5rem; }
+
+/* Activity */
+.log{ list-style:none; padding:0; margin:.75rem 0 0; font-size:.875rem; color:var(--muted); max-height:240px; overflow:auto; }
+.log li{ padding:.4rem 0; border-bottom:1px solid var(--line); display:flex; gap:.85rem; }
+.log time{ font-variant-numeric:tabular-nums; flex:none; min-width:4.5rem; }
+.log li.err{ color:var(--danger); }
+
+@media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body data-on="true">
+<div class="halo" aria-hidden="true"></div>
+
+<div class="app">
+  <aside class="lamp-col">
+    <header class="brand">
+      <h1>Iris</h1>
+      <span id="status" class="status" data-state="off" role="status">Not connected</span>
+    </header>
+
+    <button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button>
+    <p id="orbHint" class="orb-hint">Click the lamp to turn it off</p>
+
+    <label class="field">
+      <span class="field-row"><span>Brightness</span><output id="briOut">80%</output></span>
+      <input type="range" id="bri" min="1" max="254" value="200">
+    </label>
+
+    <div class="conn">
+      <button id="connectBtn" class="btn primary">Connect your Iris</button>
+      <button id="allBtn" class="btn link">Light not listed? Show all Bluetooth devices</button>
+      <button id="disconnectBtn" class="btn" hidden>Disconnect</button>
+    </div>
+    <p id="unsupported" class="notice" hidden>This browser can’t use Bluetooth. Open this page in Chrome or Edge on a computer with Bluetooth turned on.</p>
+
+    <details class="tips">
+      <summary>Trouble connecting?</summary>
+      <ul>
+        <li>Use Chrome or Edge on your computer, with Bluetooth turned on.</li>
+        <li>Close the Hue app on your phone. The light may accept only one connection at a time.</li>
+        <li>If the light doesn’t appear, make it discoverable from the Hue app (in Bluetooth mode, it’s in the voice assistant settings), then try again within a few minutes.</li>
+        <li>If it connects but nothing changes, pair the light in your computer’s Bluetooth settings first, then connect here again.</li>
+        <li>Schedules and the timer run only while this page is open and your computer is awake.</li>
+      </ul>
+    </details>
+  </aside>
+
+  <main class="panels">
+    <section aria-labelledby="colorTitle">
+      <h2 id="colorTitle">Color</h2>
+      <div class="seg" role="tablist" aria-label="Light mode">
+        <button role="tab" data-mode="color" aria-selected="true" aria-controls="colorPane">Color</button>
+        <button role="tab" data-mode="white" aria-selected="false" aria-controls="whitePane">White</button>
+      </div>
+
+      <div id="colorPane" class="picker" role="tabpanel">
+        <input type="color" id="colorPick" value="#6c8cff" aria-label="Pick a color">
+        <span class="hex" id="hexOut">#6C8CFF</span>
+      </div>
+
+      <div id="whitePane" role="tabpanel" hidden>
+        <label class="field" style="max-width:420px">
+          <span class="field-row"><span>Warm to cool</span><output id="kelvinOut">4000K</output></span>
+          <input type="range" id="kelvin" min="2000" max="6500" step="100" value="4000">
+        </label>
+      </div>
+
+      <h3>Presets</h3>
+      <div class="swatches" id="presets"></div>
+
+      <div class="fav-head">
+        <h3>Favorites</h3>
+        <button id="saveFav" class="btn small">Save current</button>
+      </div>
+      <div class="swatches" id="favs"></div>
+      <p class="empty" id="favEmpty">Save a color you like and it will show up here.</p>
+    </section>
+
+    <section aria-labelledby="schedTitle">
+      <h2 id="schedTitle">Schedule</h2>
+      <p class="sub">Set the light to change on its own during the day. Changes happen while this page stays open on your computer.</p>
+
+      <ol id="schedList" class="sched-list"></ol>
+      <p class="empty" id="schedEmpty" style="margin-bottom:1.25rem">Nothing scheduled yet. Try a focus white at 9:00 and a warm white at 15:30.</p>
+
+      <div class="sched-add">
+        <h3>Add a change</h3>
+        <div class="row">
+          <label class="lbl">Time
+            <input type="time" id="addTime" required>
+          </label>
+          <label class="lbl">Change to
+            <select id="addAction">
+              <option value="white">White</option>
+              <option value="color">Color</option>
+              <option value="off">Turn off</option>
+            </select>
+          </label>
+          <label class="lbl" id="addColorWrap" hidden>Color
+            <input type="color" id="addColor" value="#ff6a2b">
+          </label>
+        </div>
+        <label class="lbl" id="addKelvinWrap" style="max-width:420px">
+          <span class="field-row" style="margin:0"><span>Warm to cool</span><output id="addKelvinOut">2700K</output></span>
+          <input type="range" id="addKelvin" min="2000" max="6500" step="100" value="2700">
+        </label>
+        <label class="lbl" id="addBriWrap" style="max-width:420px">
+          <span class="field-row" style="margin:0"><span>Brightness</span><output id="addBriOut">71%</output></span>
+          <input type="range" id="addBri" min="1" max="254" value="180">
+        </label>
+        <div>
+          <span class="lbl" style="margin-bottom:.4rem">Days</span>
+          <div class="days" id="addDays"></div>
+        </div>
+        <p class="error" id="addError" hidden></p>
+        <div><button id="addBtn" class="btn primary">Add to schedule</button></div>
+      </div>
+
+      <label class="check"><input type="checkbox" id="catchUp" checked> When I connect, set the light to the latest scheduled change from today</label>
+    </section>
+
+    <section aria-labelledby="timerTitle">
+      <h2 id="timerTitle">Focus timer</h2>
+      <p class="sub">The light flashes when time’s up, so you notice without a sound.</p>
+      <div class="timer-display" id="timerDisplay" aria-live="off">25:00</div>
+      <div class="chips" id="timerChips">
+        <button class="chip" data-min="15" aria-pressed="false">15</button>
+        <button class="chip" data-min="25" aria-pressed="true">25</button>
+        <button class="chip" data-min="50" aria-pressed="false">50</button>
+        <input type="number" id="timerCustom" min="1" max="240" placeholder="Min" aria-label="Custom minutes">
+      </div>
+      <div class="timer-opts">
+        <span>When time’s up, flash</span>
+        <input type="color" id="alertColor" value="#ff2a2a" aria-label="Flash color">
+        <span>then</span>
+        <select id="afterAlert" aria-label="After flashing">
+          <option value="restore">go back to the previous light</option>
+          <option value="stay">stay on that color</option>
+        </select>
+      </div>
+      <label class="check"><input type="checkbox" id="beep"> Also play a short sound</label>
+      <div class="timer-row">
+        <button id="timerBtn" class="btn primary">Start timer</button>
+        <button id="testFlash" class="btn">Test the flash</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="logTitle">
+      <h2 id="logTitle">Activity</h2>
+      <ol class="log" id="log"></ol>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Hue Bluetooth (GATT) ----------
+  const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
+  const UUID = {
+    power: '932c32bd-0002-47a2-835a-a8d455b859dd',
+    bri:   '932c32bd-0003-47a2-835a-a8d455b859dd',
+    ct:    '932c32bd-0004-47a2-835a-a8d455b859dd',
+    xy:    '932c32bd-0005-47a2-835a-a8d455b859dd'
+  };
+
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const pct = b => Math.round(b / 254 * 100) + '%';
+
+  // ---------- Storage ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('iris:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('iris:' + k, JSON.stringify(v)); } catch {} }
+  };
+
+  const light = Object.assign({ on: true, bri: 200, mode: 'color', hex: '#6c8cff', kelvin: 4000 }, store.get('light', {}));
+  let schedule = store.get('schedule', []);
+  let favorites = store.get('favorites', []);
+  const settings = Object.assign({ catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25 }, store.get('settings', {}));
+  const saveLight = () => store.set('light', light);
+  const saveSchedule = () => store.set('schedule', schedule);
+  const saveFavs = () => store.set('favorites', favorites);
+  const saveSettings = () => store.set('settings', settings);
+
+  // ---------- Color math ----------
+  const hexToRgb = hex => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const rgbToHex = (r, g, b) => '#' + [r, g, b].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+  const toLin = c => { c /= 255; return c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92; };
+  const toGam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+
+  function hexToXY(hex) {
+    const [r, g, b] = hexToRgb(hex).map(toLin);
+    const X = r * 0.664511 + g * 0.154324 + b * 0.162028;
+    const Y = r * 0.283881 + g * 0.668433 + b * 0.047685;
+    const Z = r * 0.000088 + g * 0.072310 + b * 0.986039;
+    const s = X + Y + Z;
+    return s ? [X / s, Y / s] : [0.3127, 0.3290];
+  }
+  function xyToHex(x, y) {
+    if (y <= 0) return '#ffffff';
+    const Y = 1, X = (Y / y) * x, Z = (Y / y) * (1 - x - y);
+    let r = X * 1.656492 - Y * 0.354851 - Z * 0.255038;
+    let g = -X * 0.707196 + Y * 1.655397 + Z * 0.036152;
+    let b = X * 0.051713 - Y * 0.121364 + Z * 1.011530;
+    r = Math.max(0, r); g = Math.max(0, g); b = Math.max(0, b);
+    const m = Math.max(r, g, b) || 1;
+    return rgbToHex(...[r / m, g / m, b / m].map(c => toGam(c) * 255));
+  }
+  function kelvinToHex(K) {
+    const t = K / 100; let r, g, b;
+    if (t <= 66) {
+      r = 255;
+      g = 99.4708025861 * Math.log(t) - 161.1195681661;
+      b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    } else {
+      r = 329.698727446 * Math.pow(t - 60, -0.1332047592);
+      g = 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+      b = 255;
+    }
+    return rgbToHex(r, g, b);
+  }
+  function kelvinToXY(T) {
+    T = clamp(T, 1667, 25000);
+    const x = T <= 4000
+      ? -0.2661239e9 / T ** 3 - 0.2343589e6 / T ** 2 + 0.8776956e3 / T + 0.179910
+      : -3.0258469e9 / T ** 3 + 2.1070379e6 / T ** 2 + 0.2226347e3 / T + 0.240390;
+    let y;
+    if (T <= 2222) y = -1.1063814 * x ** 3 - 1.34811020 * x ** 2 + 2.18555832 * x - 0.20219683;
+    else if (T <= 4000) y = -0.9549476 * x ** 3 - 1.37418593 * x ** 2 + 2.09137015 * x - 0.16748867;
+    else y = 3.0817580 * x ** 3 - 5.87338670 * x ** 2 + 3.75112997 * x - 0.37001483;
+    return [x, y];
+  }
+
+  // ---------- Byte encoders ----------
+  const u8 = v => new Uint8Array([v]);
+  const enc = {
+    power: on => u8(on ? 1 : 0),
+    bri: v => u8(clamp(Math.round(v), 1, 254)),
+    ct: K => { const buf = new ArrayBuffer(2); new DataView(buf).setUint16(0, clamp(Math.round(1e6 / K), 153, 500), true); return buf; },
+    xy: ([x, y]) => { const buf = new ArrayBuffer(4), dv = new DataView(buf); dv.setUint16(0, Math.round(clamp(x, 0, 1) * 65535), true); dv.setUint16(2, Math.round(clamp(y, 0, 1) * 65535), true); return buf; }
+  };
+
+  // ---------- Elements ----------
+  const els = {
+    status: $('status'), orb: $('orb'), orbHint: $('orbHint'), bri: $('bri'), briOut: $('briOut'),
+    connectBtn: $('connectBtn'), allBtn: $('allBtn'), disconnectBtn: $('disconnectBtn'), unsupported: $('unsupported'),
+    tabs: document.querySelectorAll('.seg [role=tab]'), colorPane: $('colorPane'), whitePane: $('whitePane'),
+    colorPick: $('colorPick'), hexOut: $('hexOut'), kelvin: $('kelvin'), kelvinOut: $('kelvinOut'),
+    presets: $('presets'), favs: $('favs'), favEmpty: $('favEmpty'), saveFav: $('saveFav'),
+    schedList: $('schedList'), schedEmpty: $('schedEmpty'),
+    addTime: $('addTime'), addAction: $('addAction'), addColorWrap: $('addColorWrap'), addColor: $('addColor'),
+    addKelvinWrap: $('addKelvinWrap'), addKelvin: $('addKelvin'), addKelvinOut: $('addKelvinOut'),
+    addBriWrap: $('addBriWrap'), addBri: $('addBri'), addBriOut: $('addBriOut'),
+    addDays: $('addDays'), addError: $('addError'), addBtn: $('addBtn'), catchUp: $('catchUp'),
+    timerDisplay: $('timerDisplay'), timerChips: $('timerChips'), timerCustom: $('timerCustom'),
+    alertColor: $('alertColor'), afterAlert: $('afterAlert'), beep: $('beep'), timerBtn: $('timerBtn'), testFlash: $('testFlash'),
+    log: $('log')
+  };
+
+  // ---------- Activity log ----------
+  function log(msg, isErr = false) {
+    const li = document.createElement('li');
+    if (isErr) li.className = 'err';
+    const t = document.createElement('time');
+    t.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const s = document.createElement('span');
+    s.textContent = msg;
+    li.append(t, s);
+    els.log.prepend(li);
+    while (els.log.children.length > 40) els.log.lastChild.remove();
+  }
+
+  // ---------- Connection ----------
+  let device = null, chars = {}, ready = false, wantConnected = false, connecting = false;
+  let reconnectTimer = null, retry = 0, hintedOffline = false, hintedPairing = false;
+
+  function setStatus(state) {
+    els.status.dataset.state = state;
+    const name = (device && device.name) || 'your light';
+    els.status.textContent = {
+      off: 'Not connected', busy: 'Connecting…', retry: 'Reconnecting…', on: 'Connected to ' + name
+    }[state];
+    const connected = state === 'on' || state === 'busy' || state === 'retry';
+    els.connectBtn.hidden = connected;
+    els.allBtn.hidden = connected;
+    els.disconnectBtn.hidden = !connected;
+  }
+
+  async function connect(showAll) {
+    if (!navigator.bluetooth) return;
+    try {
+      const opts = showAll
+        ? { acceptAllDevices: true, optionalServices: [SVC] }
+        : { filters: [{ namePrefix: 'Hue' }, { services: [SVC] }], optionalServices: [SVC] };
+      const d = await navigator.bluetooth.requestDevice(opts);
+      if (device && device !== d) { try { device.gatt.disconnect(); } catch {} }
+      device = d;
+      device.addEventListener('gattserverdisconnected', onDisconnect);
+      store.set('deviceId', device.id);
+      wantConnected = true;
+      await openGatt(true);
+    } catch (e) {
+      if (e && e.name === 'NotFoundError') { log('No light selected.'); return; }
+      ready = false; setStatus('off');
+      log('Couldn’t connect: ' + (e && e.message ? e.message : e) + '. See “Trouble connecting?”', true);
+    }
+  }
+
+  async function openGatt(doCatchUp) {
+    if (connecting) return;
+    connecting = true;
+    setStatus(retry ? 'retry' : 'busy');
+    try {
+      const server = await device.gatt.connect();
+      const svc = await server.getPrimaryService(SVC);
+      const found = {};
+      for (const [k, u] of Object.entries(UUID)) {
+        try { found[k] = await svc.getCharacteristic(u); } catch {}
+      }
+      if (!found.power && !found.xy && !found.bri) throw new Error('This device doesn’t look like a Hue light');
+      chars = found; ready = true; retry = 0;
+      setStatus('on');
+      log('Connected to ' + (device.name || 'your light') + '.');
+      await readState();
+      if (doCatchUp && settings.catchUp) catchUp();
+    } finally {
+      connecting = false;
+    }
+  }
+
+  function onDisconnect() {
+    ready = false; chars = {}; pending.clear();
+    if (wantConnected) {
+      setStatus('retry');
+      log('Connection lost. Reconnecting…');
+      scheduleReconnect();
+    } else {
+      setStatus('off');
+    }
+  }
+
+  function scheduleReconnect() {
+    const delays = [2000, 5000, 10000, 30000, 60000];
+    const d = delays[Math.min(retry, delays.length - 1)];
+    retry++;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(async () => {
+      if (!wantConnected || !device) return;
+      try { await openGatt(false); }
+      catch { if (wantConnected) { setStatus('retry'); scheduleReconnect(); } }
+    }, d);
+  }
+
+  function disconnect() {
+    wantConnected = false; retry = 0;
+    clearTimeout(reconnectTimer);
+    try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
+    ready = false; chars = {};
+    setStatus('off');
+    log('Disconnected.');
+  }
+
+  async function tryRestore() {
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+    const id = store.get('deviceId', null);
+    if (!id) return;
+    try {
+      const list = await navigator.bluetooth.getDevices();
+      const d = list.find(x => x.id === id);
+      if (!d) return;
+      device = d;
+      device.addEventListener('gattserverdisconnected', onDisconnect);
+      wantConnected = true;
+      log('Reconnecting to ' + (d.name || 'your light') + '…');
+      await openGatt(true);
+    } catch {
+      if (wantConnected) { setStatus('retry'); scheduleReconnect(); }
+    }
+  }
+
+  async function readState() {
+    try {
+      if (chars.power) { const v = await chars.power.readValue(); light.on = v.getUint8(0) === 1; }
+      if (chars.bri) { const v = await chars.bri.readValue(); light.bri = clamp(v.getUint8(0), 1, 254); }
+      if (chars.xy) {
+        const v = await chars.xy.readValue();
+        if (v.byteLength >= 4) {
+          const x = v.getUint16(0, true) / 65535, y = v.getUint16(2, true) / 65535;
+          if (x > 0 && y > 0 && light.mode === 'color') light.hex = xyToHex(x, y);
+        }
+      }
+      saveLight(); render();
+    } catch {
+      log('Couldn’t read the light’s current state. If changes don’t work either, see “Trouble connecting?”', true);
+    }
+  }
+
+  // ---------- Write queue (one write at a time, latest value wins) ----------
+  const pending = new Map();
+  let writing = false, idleWaiters = [];
+
+  function send(key, bytes) {
+    if (!ready) {
+      if (!hintedOffline) { log('Not connected yet. Connect your Iris to send changes.'); hintedOffline = true; }
+      return;
+    }
+    if (key === 'ct' && !chars.ct) { pending.set('xy', enc.xy(kelvinToXY(light.kelvin))); pump(); return; }
+    pending.set(key, bytes);
+    pump();
+  }
+
+  async function writeChar(c, bytes) {
+    try {
+      if (c.writeValueWithResponse) return await c.writeValueWithResponse(bytes);
+      return await c.writeValue(bytes);
+    } catch (e) {
+      if (e && e.name === 'NotSupportedError' && c.writeValueWithoutResponse) return await c.writeValueWithoutResponse(bytes);
+      throw e;
+    }
+  }
+
+  async function pump() {
+    if (writing) return;
+    writing = true;
+    try {
+      while (pending.size && ready) {
+        const [key, bytes] = pending.entries().next().value;
+        pending.delete(key);
+        const c = chars[key];
+        if (!c) continue;
+        try {
+          await writeChar(c, bytes);
+        } catch (e) {
+          if (!ready) break;
+          if (key === 'ct') {
+            chars.ct = null;
+            pending.set('xy', enc.xy(kelvinToXY(light.kelvin)));
+            continue;
+          }
+          if (!hintedPairing) {
+            log('The light refused a change (' + (e.message || e.name) + '). Pair it in your computer’s Bluetooth settings, then connect again.', true);
+            hintedPairing = true;
+          }
+        }
+      }
+    } finally {
+      writing = false;
+      if (!pending.size || !ready) { const w = idleWaiters; idleWaiters = []; w.forEach(r => r()); }
+      else pump();
+    }
+  }
+  const whenIdle = () => (!writing && !pending.size) ? Promise.resolve() : new Promise(r => idleWaiters.push(r));
+
+  // ---------- Light actions ----------
+  function ensureOn() { if (!light.on) { light.on = true; send('power', enc.power(true)); } }
+
+  function setPower(on) {
+    light.on = on; saveLight();
+    send('power', enc.power(on));
+    render();
+  }
+  function setBri(v) {
+    ensureOn();
+    light.bri = clamp(Math.round(v), 1, 254); saveLight();
+    send('bri', enc.bri(light.bri));
+    render();
+  }
+  function setColor(hex, opts = {}) {
+    light.mode = 'color'; light.hex = hex.toLowerCase();
+    ensureOn();
+    send('xy', enc.xy(hexToXY(light.hex)));
+    if (opts.bri != null) { light.bri = opts.bri; send('bri', enc.bri(opts.bri)); }
+    saveLight(); render();
+  }
+  function setWhite(K, opts = {}) {
+    light.mode = 'white'; light.kelvin = clamp(Math.round(K), 2000, 6500);
+    ensureOn();
+    send('ct', enc.ct(light.kelvin));
+    if (opts.bri != null) { light.bri = opts.bri; send('bri', enc.bri(opts.bri)); }
+    saveLight(); render();
+  }
+  function applyState(s) {
+    if (s.on === false) { setPower(false); return; }
+    if (s.mode === 'white') setWhite(s.kelvin, { bri: s.bri });
+    else setColor(s.hex, { bri: s.bri });
+  }
+  const displayHex = (s = light) => s.mode === 'white' ? kelvinToHex(s.kelvin) : s.hex;
+
+  // ---------- Render ----------
+  function render() {
+    const root = document.documentElement.style;
+    root.setProperty('--lamp', displayHex());
+    root.setProperty('--glow', (light.bri / 254).toFixed(3));
+    document.body.dataset.on = String(light.on);
+    els.orb.setAttribute('aria-pressed', String(light.on));
+    els.orb.setAttribute('aria-label', light.on ? 'Turn the light off' : 'Turn the light on');
+    els.orbHint.textContent = light.on ? 'Click the lamp to turn it off' : 'The light is off. Click the lamp to turn it on';
+    els.bri.value = light.bri;
+    els.briOut.textContent = pct(light.bri);
+    els.tabs.forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === light.mode)));
+    els.colorPane.hidden = light.mode !== 'color';
+    els.whitePane.hidden = light.mode !== 'white';
+    if (els.colorPick.value.toLowerCase() !== light.hex) els.colorPick.value = light.hex;
+    els.hexOut.textContent = light.hex.toUpperCase();
+    els.kelvin.value = light.kelvin;
+    els.kelvinOut.textContent = light.kelvin + 'K';
+  }
+
+  // ---------- Presets & favorites ----------
+  const PRESETS = [
+    { name: 'Focus', mode: 'white', kelvin: 5000, bri: 254 },
+    { name: 'Daylight', mode: 'white', kelvin: 4000, bri: 220 },
+    { name: 'Warm', mode: 'white', kelvin: 2700, bri: 170 },
+    { name: 'Calm blue', mode: 'color', hex: '#3d6bff', bri: 150 },
+    { name: 'Violet', mode: 'color', hex: '#8b4dff', bri: 160 },
+    { name: 'Sunset', mode: 'color', hex: '#ff6a2b', bri: 180 },
+    { name: 'Forest', mode: 'color', hex: '#2fd27a', bri: 160 },
+    { name: 'Do not disturb', mode: 'color', hex: '#ff2424', bri: 200 }
+  ];
+
+  function swatchButton(item, label) {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.type = 'button';
+    b.style.setProperty('--c', displayHex(item));
+    const dot = document.createElement('span'); dot.className = 'dot';
+    const t = document.createElement('span'); t.textContent = label;
+    b.append(dot, t);
+    b.addEventListener('click', () => applyState({ on: true, ...item }));
+    return b;
+  }
+
+  function renderPresets() {
+    els.presets.replaceChildren(...PRESETS.map(p => {
+      const b = swatchButton(p, p.name);
+      b.setAttribute('aria-label', 'Set light to ' + p.name);
+      return b;
+    }));
+  }
+
+  const favLabel = f => f.mode === 'white' ? f.kelvin + 'K white' : f.hex.toUpperCase();
+
+  function renderFavs() {
+    els.favEmpty.hidden = favorites.length > 0;
+    els.favs.replaceChildren(...favorites.map(f => {
+      const wrap = document.createElement('div'); wrap.className = 'swatch-wrap';
+      const b = swatchButton(f, favLabel(f) + ', ' + pct(f.bri));
+      const x = document.createElement('button');
+      x.className = 'remove'; x.type = 'button'; x.textContent = '×';
+      x.setAttribute('aria-label', 'Remove favorite ' + favLabel(f));
+      x.addEventListener('click', () => { favorites = favorites.filter(o => o.id !== f.id); saveFavs(); renderFavs(); });
+      wrap.append(b, x);
+      return wrap;
+    }));
+  }
+
+  els.saveFav.addEventListener('click', () => {
+    const f = { id: Date.now().toString(36), mode: light.mode, hex: light.hex, kelvin: light.kelvin, bri: light.bri };
+    const same = favorites.some(o => o.mode === f.mode && o.bri === f.bri && (f.mode === 'white' ? o.kelvin === f.kelvin : o.hex === f.hex));
+    if (same) { log('That one is already in your favorites.'); return; }
+    favorites.push(f);
+    if (favorites.length > 12) favorites.shift();
+    saveFavs(); renderFavs();
+    log('Saved ' + favLabel(f) + ' to favorites.');
+  });
+
+  // ---------- Schedule ----------
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+  const todayStr = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  function entryDate(e, now) { const [h, m] = e.time.split(':').map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; }
+  function fmtTime(t) { const [h, m] = t.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function daysLabel(days) {
+    const s = [...days].sort().join(',');
+    if (s === '0,1,2,3,4,5,6') return 'Every day';
+    if (s === '1,2,3,4,5') return 'Weekdays';
+    if (s === '0,6') return 'Weekends';
+    return DAY_ORDER.filter(d => days.includes(d)).map(d => DAY_NAMES[d]).join(', ');
+  }
+  function describeEntry(e) {
+    if (e.action === 'off') return 'Turn off';
+    if (e.action === 'white') return 'White ' + e.kelvin + 'K at ' + pct(e.bri);
+    return 'Color ' + e.hex.toUpperCase() + ' at ' + pct(e.bri);
+  }
+  function applyEntry(e) {
+    if (e.action === 'off') setPower(false);
+    else if (e.action === 'white') setWhite(e.kelvin, { bri: e.bri });
+    else setColor(e.hex, { bri: e.bri });
+  }
+
+  function renderSchedule() {
+    schedule.sort((a, b) => a.time.localeCompare(b.time));
+    els.schedEmpty.hidden = schedule.length > 0;
+    els.schedList.replaceChildren(...schedule.map(e => {
+      const li = document.createElement('li');
+      li.className = 'sched-item';
+      li.dataset.enabled = String(e.enabled);
+
+      const dot = document.createElement('span');
+      dot.className = 'dot' + (e.action === 'off' ? ' off' : '');
+      if (e.action !== 'off') dot.style.setProperty('--c', e.action === 'white' ? kelvinToHex(e.kelvin) : e.hex);
+
+      const text = document.createElement('div'); text.className = 'sched-text';
+      const time = document.createElement('div'); time.className = 'sched-time'; time.textContent = fmtTime(e.time);
+      const desc = document.createElement('div'); desc.className = 'sched-desc'; desc.textContent = describeEntry(e) + ', ' + daysLabel(e.days);
+      text.append(time, desc);
+
+      const actions = document.createElement('div'); actions.className = 'sched-actions';
+      const sw = document.createElement('input');
+      sw.type = 'checkbox'; sw.className = 'switch'; sw.checked = e.enabled;
+      sw.setAttribute('aria-label', 'Turn the ' + fmtTime(e.time) + ' change ' + (e.enabled ? 'off' : 'on'));
+      sw.addEventListener('change', () => { e.enabled = sw.checked; saveSchedule(); renderSchedule(); });
+      const tryBtn = document.createElement('button');
+      tryBtn.className = 'btn small'; tryBtn.type = 'button'; tryBtn.textContent = 'Try it';
+      tryBtn.addEventListener('click', () => applyEntry(e));
+      const del = document.createElement('button');
+      del.className = 'btn small'; del.type = 'button'; del.textContent = 'Remove';
+      del.setAttribute('aria-label', 'Remove the ' + fmtTime(e.time) + ' change');
+      del.addEventListener('click', () => { schedule = schedule.filter(o => o.id !== e.id); saveSchedule(); renderSchedule(); log('Removed the ' + fmtTime(e.time) + ' change.'); });
+      actions.append(sw, tryBtn, del);
+
+      li.append(dot, text, actions);
+      return li;
+    }));
+  }
+
+  function runEntry(e) {
+    e.lastRun = todayStr();
+    saveSchedule();
+    applyEntry(e);
+    log('Scheduled change: ' + describeEntry(e) + '.');
+  }
+
+  function tickSchedule() {
+    if (!ready) return;
+    const now = new Date(), today = todayStr(now);
+    for (const e of schedule) {
+      if (!e.enabled || e.lastRun === today || !e.days.includes(now.getDay())) continue;
+      const diff = now - entryDate(e, now);
+      if (diff >= 0 && diff < 10 * 60 * 1000) runEntry(e);
+    }
+  }
+
+  function catchUp() {
+    const now = new Date(), today = todayStr(now);
+    const due = schedule.filter(e => e.enabled && e.days.includes(now.getDay()) && entryDate(e, now) <= now);
+    if (!due.length) return;
+    due.sort((a, b) => a.time.localeCompare(b.time));
+    const last = due[due.length - 1];
+    due.forEach(e => { e.lastRun = today; });
+    saveSchedule();
+    applyEntry(last);
+    log('Caught up on the ' + fmtTime(last.time) + ' change: ' + describeEntry(last) + '.');
+  }
+
+  // Add form
+  function buildDayPicker() {
+    els.addDays.replaceChildren(...DAY_ORDER.map(d => {
+      const lab = document.createElement('label'); lab.className = 'day';
+      const inp = document.createElement('input'); inp.type = 'checkbox'; inp.value = String(d); inp.checked = d >= 1 && d <= 5;
+      const sp = document.createElement('span'); sp.textContent = DAY_NAMES[d];
+      lab.append(inp, sp);
+      return lab;
+    }));
+  }
+  function syncAddForm() {
+    const a = els.addAction.value;
+    els.addColorWrap.hidden = a !== 'color';
+    els.addKelvinWrap.hidden = a !== 'white';
+    els.addBriWrap.hidden = a === 'off';
+    els.addKelvinOut.textContent = els.addKelvin.value + 'K';
+    els.addBriOut.textContent = pct(+els.addBri.value);
+  }
+  function defaultAddTime() {
+    const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
+    els.addTime.value = String(d.getHours()).padStart(2, '0') + ':00';
+  }
+  els.addAction.addEventListener('change', syncAddForm);
+  els.addKelvin.addEventListener('input', syncAddForm);
+  els.addBri.addEventListener('input', syncAddForm);
+  els.addBtn.addEventListener('click', () => {
+    const time = els.addTime.value;
+    const days = [...els.addDays.querySelectorAll('input:checked')].map(i => +i.value);
+    if (!time) { showAddError('Pick a time for this change.'); return; }
+    if (!days.length) { showAddError('Pick at least one day.'); return; }
+    els.addError.hidden = true;
+    const e = {
+      id: Date.now().toString(36), time, days, enabled: true, lastRun: null,
+      action: els.addAction.value, hex: els.addColor.value.toLowerCase(), kelvin: +els.addKelvin.value, bri: +els.addBri.value
+    };
+    // If the time already passed today, don't fire it right away
+    if (days.includes(new Date().getDay()) && entryDate(e, new Date()) <= new Date()) e.lastRun = todayStr();
+    schedule.push(e);
+    saveSchedule(); renderSchedule();
+    log('Added: ' + describeEntry(e) + ' at ' + fmtTime(time) + ', ' + daysLabel(days) + '.');
+  });
+  function showAddError(msg) { els.addError.textContent = msg; els.addError.hidden = false; }
+
+  els.catchUp.checked = settings.catchUp;
+  els.catchUp.addEventListener('change', () => { settings.catchUp = els.catchUp.checked; saveSettings(); });
+
+  // ---------- Focus timer ----------
+  let timerEnd = null, timerTimeout = null, timerTick = null, flashing = false, audioCtx = null;
+  const fmtMS = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+
+  function renderTimerChips() {
+    els.timerChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.min === settings.timerMin)));
+    if (![15, 25, 50].includes(settings.timerMin)) els.timerCustom.value = settings.timerMin;
+    if (!timerEnd) els.timerDisplay.textContent = fmtMS(settings.timerMin * 60000);
+  }
+  els.timerChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    settings.timerMin = +c.dataset.min; els.timerCustom.value = ''; saveSettings(); renderTimerChips();
+  }));
+  els.timerCustom.addEventListener('input', () => {
+    const v = Math.round(+els.timerCustom.value);
+    if (v >= 1 && v <= 240) { settings.timerMin = v; saveSettings(); renderTimerChips(); }
+  });
+
+  els.alertColor.value = settings.alertColor;
+  els.afterAlert.value = settings.afterAlert;
+  els.beep.checked = settings.beep;
+  els.alertColor.addEventListener('input', () => { settings.alertColor = els.alertColor.value; saveSettings(); });
+  els.afterAlert.addEventListener('change', () => { settings.afterAlert = els.afterAlert.value; saveSettings(); });
+  els.beep.addEventListener('change', () => { settings.beep = els.beep.checked; saveSettings(); if (settings.beep) ensureAudio(); });
+
+  function ensureAudio() {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch {}
+  }
+  function beep() {
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    [0, 0.35, 0.7].forEach(o => {
+      const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t0 + o);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + o + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + o + 0.25);
+      osc.connect(g).connect(audioCtx.destination);
+      osc.start(t0 + o); osc.stop(t0 + o + 0.3);
+    });
+  }
+
+  function startTimer() {
+    if (settings.beep) ensureAudio();
+    const ms = settings.timerMin * 60000;
+    timerEnd = Date.now() + ms;
+    clearTimeout(timerTimeout); clearInterval(timerTick);
+    timerTimeout = setTimeout(timerDone, ms);
+    timerTick = setInterval(updateTimerDisplay, 500);
+    updateTimerDisplay();
+    els.timerBtn.textContent = 'Stop timer';
+    log('Focus timer started: ' + settings.timerMin + ' min.');
+  }
+  function stopTimer(silent) {
+    clearTimeout(timerTimeout); clearInterval(timerTick);
+    timerEnd = null;
+    document.title = 'Iris';
+    els.timerBtn.textContent = 'Start timer';
+    renderTimerChips();
+    if (!silent) log('Focus timer stopped.');
+  }
+  function updateTimerDisplay() {
+    if (!timerEnd) return;
+    const left = timerEnd - Date.now();
+    els.timerDisplay.textContent = fmtMS(left);
+    document.title = fmtMS(left) + ' – Iris';
+    if (left <= 0) timerDone();
+  }
+  async function timerDone() {
+    if (!timerEnd) return;
+    stopTimer(true);
+    log('Time’s up.');
+    if (settings.beep) beep();
+    await alertFlash();
+  }
+  async function alertFlash() {
+    if (!ready) { log('The light isn’t connected, so it couldn’t flash.', true); return; }
+    if (flashing) return;
+    flashing = true;
+    const prev = { ...light };
+    try {
+      for (let i = 0; i < 4; i++) {
+        setColor(settings.alertColor, { bri: 254 });
+        await whenIdle(); await sleep(500);
+        light.bri = 25; send('bri', enc.bri(25)); render();
+        await whenIdle(); await sleep(500);
+      }
+      if (settings.afterAlert === 'restore') applyState(prev);
+      else setColor(settings.alertColor, { bri: 254 });
+    } finally {
+      flashing = false;
+    }
+  }
+  els.timerBtn.addEventListener('click', () => timerEnd ? stopTimer(false) : startTimer());
+  els.testFlash.addEventListener('click', () => { if (settings.beep) { ensureAudio(); beep(); } alertFlash(); });
+
+  // ---------- Controls ----------
+  els.orb.addEventListener('click', () => setPower(!light.on));
+  els.bri.addEventListener('input', () => setBri(+els.bri.value));
+  els.colorPick.addEventListener('input', () => setColor(els.colorPick.value));
+  els.kelvin.addEventListener('input', () => setWhite(+els.kelvin.value));
+  els.tabs.forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.mode === 'white') setWhite(light.kelvin); else setColor(light.hex);
+  }));
+  els.connectBtn.addEventListener('click', () => connect(false));
+  els.allBtn.addEventListener('click', () => connect(true));
+  els.disconnectBtn.addEventListener('click', disconnect);
+
+  // ---------- Start ----------
+  render();
+  renderPresets();
+  renderFavs();
+  buildDayPicker();
+  defaultAddTime();
+  syncAddForm();
+  renderSchedule();
+  renderTimerChips();
+  setStatus('off');
+
+  if (!navigator.bluetooth) {
+    els.unsupported.hidden = false;
+    els.connectBtn.disabled = true;
+    els.allBtn.disabled = true;
+  } else {
+    if (navigator.bluetooth.getAvailability) {
+      navigator.bluetooth.getAvailability().then(ok => { if (!ok) log('Bluetooth looks turned off on this computer.', true); }).catch(() => {});
+    }
+    tryRestore();
+  }
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  setInterval(tickSchedule, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tickSchedule(); updateTimerDisplay(); } });
+})();
+</script>
+</body>
+</html>
