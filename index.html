@@ -156,6 +156,11 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
 .log li{ padding:.4rem 0; border-bottom:1px solid var(--line); display:flex; gap:.85rem; }
 .log time{ font-variant-numeric:tabular-nums; flex:none; min-width:4.5rem; }
 .log li.err{ color:var(--danger); }
+.log li.ok{ color:var(--ok); }
+
+/* Diagnostics */
+.diag{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:1rem; margin:1.25rem 0 0; font:.8125rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; word-break:break-word; max-height:460px; overflow:auto; color:var(--ink); }
+.diag-q{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-top:1rem; font-size:.9375rem; }
 
 @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
 </style>
@@ -191,7 +196,8 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         <li>Use Chrome or Edge on your computer, with Bluetooth turned on.</li>
         <li>Close the Hue app on your phone. The light may accept only one connection at a time.</li>
         <li>If the light doesn’t appear, make it discoverable from the Hue app (in Bluetooth mode, it’s in the voice assistant settings), then try again within a few minutes.</li>
-        <li>If it connects but nothing changes, pair the light in your computer’s Bluetooth settings first, then connect here again.</li>
+        <li>If it connects but nothing changes, run the test in Diagnostics. It tells you whether the light refuses the commands and how to fix it on your system.</li>
+        <li>On Windows, the light must be paired in Settings → Bluetooth &amp; devices → Add device while it is discoverable, before you connect here.</li>
         <li>Schedules and the timer run only while this page is open and your computer is awake.</li>
       </ul>
     </details>
@@ -295,6 +301,16 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         <button id="timerBtn" class="btn primary">Start timer</button>
         <button id="testFlash" class="btn">Test the flash</button>
       </div>
+    </section>
+
+    <section aria-labelledby="diagTitle">
+      <h2 id="diagTitle">Diagnostics</h2>
+      <p class="sub">Connected but the light doesn’t react? Connect first, keep the light in view, then run this test. It tries several ways to switch the light off and on, and writes down what happened.</p>
+      <div class="timer-row" style="margin-top:0">
+        <button id="diagBtn" class="btn primary">Run the test</button>
+        <button id="diagCopy" class="btn" hidden>Copy the report</button>
+      </div>
+      <pre id="diagOut" class="diag" hidden></pre>
     </section>
 
     <section aria-labelledby="logTitle">
@@ -407,15 +423,16 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     addKelvinWrap: $('addKelvinWrap'), addKelvin: $('addKelvin'), addKelvinOut: $('addKelvinOut'),
     addBriWrap: $('addBriWrap'), addBri: $('addBri'), addBriOut: $('addBriOut'),
     addDays: $('addDays'), addError: $('addError'), addBtn: $('addBtn'), catchUp: $('catchUp'),
+    diagBtn: $('diagBtn'), diagCopy: $('diagCopy'), diagOut: $('diagOut'),
     timerDisplay: $('timerDisplay'), timerChips: $('timerChips'), timerCustom: $('timerCustom'),
     alertColor: $('alertColor'), afterAlert: $('afterAlert'), beep: $('beep'), timerBtn: $('timerBtn'), testFlash: $('testFlash'),
     log: $('log')
   };
 
   // ---------- Activity log ----------
-  function log(msg, isErr = false) {
+  function log(msg, isErr = false, cls = '') {
     const li = document.createElement('li');
-    if (isErr) li.className = 'err';
+    if (isErr) li.className = 'err'; else if (cls) li.className = cls;
     const t = document.createElement('time');
     t.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const s = document.createElement('span');
@@ -427,7 +444,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
 
   // ---------- Connection ----------
   let device = null, chars = {}, ready = false, wantConnected = false, connecting = false;
-  let reconnectTimer = null, retry = 0, hintedOffline = false, hintedPairing = false;
+  let reconnectTimer = null, retry = 0, hintedOffline = false;
 
   function setStatus(state) {
     els.status.dataset.state = state;
@@ -473,9 +490,11 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         try { found[k] = await svc.getCharacteristic(u); } catch {}
       }
       if (!found.power && !found.xy && !found.bri) throw new Error('This device doesn’t look like a Hue light');
-      chars = found; ready = true; retry = 0;
+      chars = found; ready = true; retry = 0; confirmedWrite = false; seenErrors = new Set();
       setStatus('on');
-      log('Connected to ' + (device.name || 'your light') + '.');
+      const NAMES = { power: 'on/off', bri: 'brightness', ct: 'white temperature', xy: 'color' };
+      const missing = Object.keys(UUID).filter(k => !found[k]).map(k => NAMES[k]);
+      log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''));
       await readState();
       if (doCatchUp && settings.catchUp) catchUp();
     } finally {
@@ -545,8 +564,8 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         }
       }
       saveLight(); render();
-    } catch {
-      log('Couldn’t read the light’s current state. If changes don’t work either, see “Trouble connecting?”', true);
+    } catch (e) {
+      log('Couldn’t read the light’s current state (' + errText(e) + '). If changes don’t work either, run the test in Diagnostics.', true);
     }
   }
 
@@ -564,15 +583,22 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     pump();
   }
 
+  // Use the write type the light advertises, and fall back to the other one if it is refused.
   async function writeChar(c, bytes) {
-    try {
-      if (c.writeValueWithResponse) return await c.writeValueWithResponse(bytes);
-      return await c.writeValue(bytes);
-    } catch (e) {
-      if (e && e.name === 'NotSupportedError' && c.writeValueWithoutResponse) return await c.writeValueWithoutResponse(bytes);
+    const p = c.properties || {};
+    const withResp = () => c.writeValueWithResponse ? c.writeValueWithResponse(bytes) : c.writeValue(bytes);
+    const noResp = () => c.writeValueWithoutResponse(bytes);
+    if (!p.write && p.writeWithoutResponse && c.writeValueWithoutResponse) return noResp();
+    try { return await withResp(); }
+    catch (e) {
+      // Only fall back when this write type is unsupported. A write without response never reports
+      // a refusal, so falling back on other errors would hide a pairing problem.
+      if (e && e.name === 'NotSupportedError' && c.writeValueWithoutResponse) return await noResp();
       throw e;
     }
   }
+  const errText = e => (e && (e.name || 'Error')) + ': ' + (e && e.message ? e.message : String(e));
+  let confirmedWrite = false, seenErrors = new Set();
 
   async function pump() {
     if (writing) return;
@@ -585,6 +611,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         if (!c) continue;
         try {
           await writeChar(c, bytes);
+          if (!confirmedWrite) { confirmedWrite = true; log('The light accepted the change. If it still didn’t react, run the test in Diagnostics.', false, 'ok'); }
         } catch (e) {
           if (!ready) break;
           if (key === 'ct') {
@@ -592,9 +619,10 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
             pending.set('xy', enc.xy(kelvinToXY(light.kelvin)));
             continue;
           }
-          if (!hintedPairing) {
-            log('The light refused a change (' + (e.message || e.name) + '). Pair it in your computer’s Bluetooth settings, then connect again.', true);
-            hintedPairing = true;
+          const t = errText(e);
+          if (!seenErrors.has(t)) {
+            seenErrors.add(t);
+            log('The light refused a change (' + t + '). Run the test in Diagnostics for what to do next.', true);
           }
         }
       }
@@ -952,6 +980,144 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
   }
   els.timerBtn.addEventListener('click', () => timerEnd ? stopTimer(false) : startTimer());
   els.testFlash.addEventListener('click', () => { if (settings.beep) { ensureAudio(); beep(); } alertFlash(); });
+
+  // ---------- Diagnostics ----------
+  const CHAR_NAMES = { '0001': 'model/unknown', '0002': 'power', '0003': 'brightness', '0004': 'white temperature', '0005': 'color (xy)', '0006': 'unknown', '0007': 'combined control', '0008': 'unknown' };
+  const PROPS = ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate', 'authenticatedSignedWrites', 'reliableWrite'];
+  const bytesHex = dv => [...new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength)].map(b => b.toString(16).padStart(2, '0')).join(' ') || '(empty)';
+  const shortId = u => u.slice(9, 13);
+  function osName() {
+    const ua = navigator.userAgent;
+    if (/Android/i.test(ua)) return 'Android';
+    if (/CrOS/.test(ua)) return 'ChromeOS';
+    if (/Windows/.test(ua)) return 'Windows';
+    if (/Mac OS X|Macintosh/.test(ua)) return 'Mac';
+    if (/Linux/.test(ua)) return 'Linux';
+    return 'Unknown';
+  }
+
+  async function runDiag() {
+    const lines = [];
+    const say = s => { lines.push(s); els.diagOut.textContent = lines.join('\n'); els.diagOut.scrollTop = els.diagOut.scrollHeight; };
+    els.diagOut.hidden = false; els.diagCopy.hidden = true; els.diagBtn.disabled = true;
+    const errors = [];
+    let accepted = 0, refused = 0;
+    const wasReady = ready;
+    ready = false; pending.clear(); // pause normal sending during the test
+    try {
+      say('Iris diagnostics, ' + new Date().toLocaleString());
+      say('System: ' + osName() + ' | ' + navigator.userAgent);
+      say('Web Bluetooth available: ' + !!navigator.bluetooth);
+      if (!device) { say('\nNo light chosen yet. Click “Connect your Iris” first, then run the test again.'); return; }
+      say('Light: ' + (device.name || '(no name)') + ' | id ' + device.id);
+      if (!device.gatt.connected) {
+        say('Not connected right now. Connecting…');
+        try { await device.gatt.connect(); say('Connected.'); }
+        catch (e) { say('Connection failed: ' + errText(e)); errors.push(e); return; }
+      }
+      await whenIdle();
+      let svc;
+      try { svc = await device.gatt.getPrimaryService(SVC); say('Hue light service: found'); }
+      catch (e) { say('Hue light service: NOT found (' + errText(e) + ')'); errors.push(e); return; }
+
+      let list = [];
+      try { list = await svc.getCharacteristics(); }
+      catch (e) { say('Could not list the controls: ' + errText(e)); errors.push(e); }
+      say('\nControls on this light:');
+      for (const c of list) {
+        const id = shortId(c.uuid);
+        const props = PROPS.filter(k => c.properties && c.properties[k]).join(', ');
+        let val = '';
+        if (c.properties && c.properties.read) {
+          try { val = ' = ' + bytesHex(await c.readValue()); }
+          catch (e) { val = ' (read refused: ' + errText(e) + ')'; errors.push(e); }
+        }
+        say('  ' + id + ' ' + (CHAR_NAMES[id] || 'unknown') + ' [' + props + ']' + val);
+      }
+
+      const power = list.find(c => c.uuid === UUID.power);
+      const methods = ['writeValueWithResponse', 'writeValueWithoutResponse', 'writeValue'];
+      if (power) {
+        say('\nOn/off tests. Watch the light: it should turn off, then on, for each test.');
+        let n = 0;
+        for (const m of methods) {
+          if (typeof power[m] !== 'function') continue;
+          n++;
+          say('\nTest ' + n + ': ' + m);
+          if (m === 'writeValueWithoutResponse') say('  (this type never reports a refusal, so watch the light itself)');
+          try { await power[m](u8(0)); if (m !== 'writeValueWithoutResponse') accepted++; say('  OFF sent' + (m === 'writeValueWithoutResponse' ? '' : ', accepted')); }
+          catch (e) {
+            if (e && e.name === 'NotSupportedError') { say('  this write type isn’t used by the light (normal)'); continue; }
+            refused++; errors.push(e); say('  OFF refused: ' + errText(e)); continue;
+          }
+          await sleep(1800);
+          if (power.properties.read) { try { say('  light now reports on/off = ' + (await power.readValue()).getUint8(0)); } catch {} }
+          try { await power[m](u8(1)); say('  ON sent'); }
+          catch (e) { refused++; errors.push(e); say('  ON refused: ' + errText(e)); }
+          await sleep(1800);
+        }
+      } else {
+        say('\nThis light has no on/off control in the usual place.');
+      }
+
+      const combo = list.find(c => shortId(c.uuid) === '0007');
+      if (combo) {
+        n2: {
+          say('\nTest: combined control (newer lights). Watch for off, then on.');
+          try { await writeChar(combo, new Uint8Array([0x01, 0x01, 0x00])); accepted++; say('  OFF sent, accepted'); }
+          catch (e) { refused++; errors.push(e); say('  OFF refused: ' + errText(e)); break n2; }
+          await sleep(1800);
+          try { await writeChar(combo, new Uint8Array([0x01, 0x01, 0x01])); accepted++; say('  ON sent, accepted'); }
+          catch (e) { refused++; errors.push(e); say('  ON refused: ' + errText(e)); }
+          await sleep(1200);
+        }
+      }
+
+      const bri = list.find(c => c.uuid === UUID.bri);
+      if (bri) {
+        say('\nTest: brightness dims to low for 2 seconds.');
+        try { await writeChar(bri, u8(20)); accepted++; say('  dim sent, accepted'); await sleep(2000); await writeChar(bri, u8(light.bri)); say('  restored'); }
+        catch (e) { refused++; errors.push(e); say('  refused: ' + errText(e)); }
+      }
+
+      // Verdict
+      say('\n---- What this means ----');
+      const os = osName();
+      const msgs = errors.map(e => errText(e).toLowerCase()).join(' | ');
+      const authLike = /auth|permit|not allowed|security|insufficient|encrypt|unknown reason|gatt operation failed|gatt error/.test(msgs);
+      if ((refused && authLike) || (refused && !accepted)) {
+        say('The light refused the commands. That almost always means it is not paired (bonded) with this ' + (os === 'Android' ? 'phone' : 'computer') + '.');
+        if (os === 'Windows') {
+          say('Fix on Windows:\n 1. Close this page and the Hue app on your phone.\n 2. In the Hue app, make the light discoverable (Bluetooth mode: Settings → Voice assistants → Amazon Alexa or Google Home → Make visible).\n 3. Within 5 minutes, open Windows Settings → Bluetooth & devices → Add device → Bluetooth, and pick the light.\n 4. Open this page again and connect. Choose the light even if it shows twice.');
+        } else if (os === 'Mac') {
+          say('Fix on Mac:\n 1. In System Settings → Bluetooth, remove the light if it is listed (Forget This Device).\n 2. In the Hue app, make the light discoverable (Settings → Voice assistants → Amazon Alexa or Google Home → Make visible).\n 3. Close the Hue app, reload this page, connect, and run the test again. macOS should then ask to pair. Accept it.');
+        } else if (os === 'Android') {
+          say('Fix on Android:\n 1. Make the light discoverable from the Hue app, then fully close the Hue app.\n 2. Connect here again. Android should ask to pair: accept it.\n 3. If no prompt appears, pair the light in Android Settings → Connected devices → Pair new device.');
+        } else {
+          say('Pair the light in your system’s Bluetooth settings while it is discoverable from the Hue app, then connect again.');
+        }
+      } else if (accepted) {
+        say('The light accepted every command. If it also turned off and on, the page works: try the color controls again.');
+        say('If it accepted but the light did NOT react, another phone or tablet may still control it, or the light is reset to factory state. Close the Hue app on every device, power the lamp off and on at the wall, then run the test again.');
+      } else {
+        say('No command could be sent. Reconnect and run the test again.');
+      }
+      say('\nCopy this report and send it to whoever helps you.');
+    } catch (e) {
+      say('\nThe test stopped: ' + errText(e));
+    } finally {
+      ready = wasReady && !!device && device.gatt.connected;
+      els.diagBtn.disabled = false;
+      els.diagCopy.hidden = false;
+      if (ready) readState();
+    }
+  }
+  els.diagBtn.addEventListener('click', runDiag);
+  els.diagCopy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(els.diagOut.textContent); els.diagCopy.textContent = 'Copied'; }
+    catch { const r = document.createRange(); r.selectNodeContents(els.diagOut); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); els.diagCopy.textContent = 'Selected, press Ctrl+C'; }
+    setTimeout(() => { els.diagCopy.textContent = 'Copy the report'; }, 2500);
+  });
 
   // ---------- Controls ----------
   els.orb.addEventListener('click', () => setPower(!light.on));
