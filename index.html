@@ -30,6 +30,9 @@
 }
 :root[data-theme="dark"]{ --bg:#0f1115; --surface:#151820; --card:#1b1f27; --ink:#eceef2; --muted:#9aa2b0; --line:#2a2f39; --soft:#232832; --danger:#ff8a80; --ok:#4fd18b; --warn:#f0b429; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25); color-scheme:dark; }
 
+@property --lamp{ syntax:'<color>'; inherits:true; initial-value:#6c8cff; }
+@property --glow{ syntax:'<number>'; inherits:true; initial-value:1; }
+:root{ transition:--lamp var(--fade, .15s) ease-in-out, --glow var(--fade, .15s) ease-in-out; }
 *{ box-sizing:border-box; }
 html,body{ margin:0; height:100%; overflow:hidden; }
 body{ background:var(--bg); color:var(--ink); font-size:15px; line-height:1.45; }
@@ -252,6 +255,24 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   .tab span{ display:none; }
   .tab{ padding:.5rem .7rem; }
 }
+/* Half a screen (snapped next to another app): lamp controls in a bar on top, full-width tabs below */
+@media (min-width:861px) and (max-width:1180px){
+  .app{ grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); gap:clamp(12px, 2vh, 20px); padding:calc(var(--tb) + 16px) 22px 16px; }
+  .lamp{ display:grid; grid-template-columns:clamp(96px, 13vh, 130px) minmax(0,1fr) minmax(230px, 300px); grid-template-areas:"orb brand brand" "orb bri now" "orb bri conn"; gap:10px 22px; align-items:center; }
+  .brand{ grid-area:brand; align-items:center; }
+  .orb-wrap{ grid-area:orb; padding:0; }
+  .orb{ width:100%; }
+  .orb-hint{ display:none; }
+  .bri-block{ grid-area:bri; }
+  .now{ grid-area:now; }
+  .conn{ grid-area:conn; }
+  #unsupported{ grid-column:1 / -1; }
+  .tabs{ align-self:stretch; justify-content:space-between; }
+  .tab{ flex:1; justify-content:center; padding:.5rem .55rem; }
+  .tab span{ display:inline; }
+  .panes{ margin-top:8px; }
+  .color-grid{ grid-template-columns:minmax(250px, 330px) minmax(0,1fr); }
+}
 /* Phones and narrow windows: compact lamp bar on top, tabs at the bottom */
 @media (max-width:860px){
   .app{ grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); gap:10px; padding:calc(var(--tb) + 12px) 14px 0; }
@@ -298,7 +319,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     <div class="orb-wrap"><button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button></div>
     <p id="orbHint" class="orb-hint">Click the lamp to turn it off</p>
 
-    <div>
+    <div class="bri-block">
       <div class="field-row"><span>Brightness</span><output id="briOut">100%</output></div>
       <input type="range" id="bri" min="1" max="254" value="254" aria-label="Brightness">
       <div class="bri-chips" id="briChips">
@@ -315,6 +336,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     <div class="conn" id="connBox">
       <button id="connectBtn" class="btn primary wide">Connect your Iris</button>
       <button id="allBtn" class="btn link">Light not listed? Show all Bluetooth devices</button>
+      <button id="autoHint" class="btn link" hidden>Make Iris reconnect by itself</button>
     </div>
     <p id="unsupported" class="notice" hidden>This browser can’t use Bluetooth. Open this page in Chrome or Edge on a computer with Bluetooth turned on.</p>
   </aside>
@@ -380,13 +402,14 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       <section class="pane" id="pane-scenes" role="tabpanel" aria-label="Scenes" hidden>
         <div class="pane-top">
           <div class="seg" id="sceneCats" role="tablist" aria-label="Scene category"></div>
-          <span class="sub" style="margin:0">Scenes marked Animated keep changing on their own.</span>
+          <span class="sub" style="margin:0">A scene sets one steady color and fades into it. The lamp keeps it, even after you close Iris.</span>
         </div>
         <div class="cards" id="sceneGrid"></div>
       </section>
 
       <!-- EFFECTS -->
       <section class="pane" id="pane-effects" role="tabpanel" aria-label="Effects" hidden>
+        <p class="sub" style="margin:0 0 .6rem">Effects keep changing the light on their own. They run while Iris is open.</p>
         <div class="pane-top">
           <div class="fx-bar">
             <label>Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
@@ -501,7 +524,16 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
               <button id="setDisconnect" class="btn small" hidden>Disconnect</button>
               <button id="setForget" class="btn small danger">Forget this light</button>
             </div>
+            <label class="check"><input type="checkbox" id="autoConnect" checked> Reconnect automatically when Iris opens</label>
+            <p class="sub" id="autoInfo" style="margin:.35rem 0 0 1.55rem"></p>
+            <button id="autoSetup" class="btn link" style="margin-left:1.55rem" hidden>Turn on automatic reconnect</button>
             <label class="check"><input type="checkbox" id="fullBri" checked> Colors and scenes always use full brightness</label>
+            <div class="set-row" style="margin-top:.5rem; border-top:1px solid var(--line)"><span>Color changes</span>
+              <select id="fadeSel" aria-label="How fast colors change">
+                <option value="0">Instant</option><option value="1000">Quick (1 s)</option><option value="3000">Gentle (3 s)</option>
+                <option value="5000">Slow (5 s)</option><option value="10000">Very slow (10 s)</option>
+              </select>
+            </div>
           </div>
 
           <div class="card">
@@ -524,10 +556,11 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
           <div class="card">
             <h2>Keyboard</h2>
             <dl class="keys" style="margin-top:.6rem">
-              <dt><kbd>Space</kbd></dt><dd>Turn the light on or off</dd>
+              <dt><kbd>Space</kbd></dt><dd>Turn the light on or off (fades in)</dd>
               <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Brighter or dimmer</dd>
               <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch section</dd>
               <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
+              <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
             </dl>
           </div>
 
@@ -565,6 +598,25 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       <button id="pairRetry" class="btn primary">I did it, connect again</button>
       <button class="btn" data-close>Close</button>
     </div>
+  </div>
+</dialog>
+
+<!-- Automatic reconnect setup -->
+<dialog id="autoDlg" aria-labelledby="autoTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="autoTitle">Reconnect by itself</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <p>For Iris to reconnect to your lamp when it opens, <span id="autoBrowser">Chrome</span> needs one setting turned on. You only do this once.</p>
+    <ol>
+      <li>Copy this address, paste it in a new tab’s address bar, and press Enter:
+        <div class="hex-row" style="width:100%; margin-top:.4rem"><input type="text" id="flagUrl" readonly><button id="flagCopy" class="btn small">Copy</button></div>
+      </li>
+      <li>Next to “Use the new permissions backend for Web Bluetooth”, choose <b>Enabled</b>.</li>
+      <li>Click <b>Relaunch</b> at the bottom of the page. Your tabs and apps come back.</li>
+      <li>Open Iris and click Connect one last time. From then on, it reconnects when it opens.</li>
+    </ol>
+    <p class="sub">Can’t find that setting? Use the address below instead and set “Experimental Web Platform features” to Enabled.</p>
+    <div class="hex-row" style="width:100%"><input type="text" id="flagUrl2" readonly><button id="flagCopy2" class="btn small">Copy</button></div>
+    <div class="row-btns" style="margin-top:0"><button class="btn" data-close>Close</button></div>
   </div>
 </dialog>
 
@@ -619,7 +671,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.0', date: 'Nov 5, 2026' };
+  const VERSION = { name: 'v2.1', date: 'Nov 5, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -649,7 +701,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -846,6 +898,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     els.setConnect.hidden = connected;
     els.setDisconnect.hidden = !connected;
     els.setLightName.textContent = state === 'on' ? 'Connected to ' + name : device ? name + ' (not connected)' : 'No light connected';
+    renderAuto();
   }
 
   async function connect(showAll) {
@@ -890,6 +943,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       setStatus('on');
       const NAMES = { power: 'on/off', bri: 'brightness', ct: 'white temperature', xy: 'color' };
       const missing = Object.keys(UUID).filter(k => !found[k]).map(k => NAMES[k]);
+      if (device.id !== 'simulated') store.set('deviceId', device.id);
+      renderAuto();
       log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''), false, 'ok', true);
       await readState();
       if (afterConnect) { const f = afterConnect; afterConnect = null; f(); }
@@ -901,7 +956,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
   function onDisconnect(ev) {
     if (ev && ev.target && device && ev.target !== device) return;
-    ready = false; chars = {}; pending.clear();
+    ready = false; chars = {}; pending.clear(); fadeTok = null; out.xy = null; out.bri = null;
     if (wantConnected) { setStatus('retry'); log('Connection lost. Reconnecting…'); scheduleReconnect(); }
     else setStatus('off');
   }
@@ -937,34 +992,87 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     log('Iris forgot this light. Connect again to choose one.', false, '', true);
   }
 
+  // Automatic reconnect. Chrome only lets a page reach a light it was given before
+  // (navigator.bluetooth.getDevices). Without it, the first connection of each session needs a click.
+  const isEdge = /Edg\//.test(navigator.userAgent);
+  const canAuto = () => !!(navigator.bluetooth && navigator.bluetooth.getDevices);
+  function renderAuto() {
+    els.autoConnect.checked = prefs.autoConnect;
+    let info = '', setup = false;
+    if (prefs.sim) info = 'The simulated light connects on its own.';
+    else if (!navigator.bluetooth) info = 'This browser has no Bluetooth.';
+    else if (!prefs.autoConnect) info = 'Off. Click Connect each time you open Iris.';
+    else if (!canAuto()) { info = (isEdge ? 'Edge' : 'Chrome') + ' needs one setting before Iris can do this.'; setup = true; }
+    else if (!store.get('deviceId', null)) info = 'Ready. Connect once, and Iris reconnects by itself next time.';
+    else info = 'On. Iris reconnects to your lamp when it opens.';
+    els.autoInfo.textContent = info;
+    els.autoSetup.hidden = !setup;
+    els.autoHint.hidden = !(setup && !ready);
+  }
+  function waitForAdvert(d, ms) {
+    return new Promise(resolve => {
+      if (!d.watchAdvertisements) { resolve(false); return; }
+      const ctl = new AbortController();
+      const done = ok => { clearTimeout(t); d.removeEventListener('advertisementreceived', onAd); try { ctl.abort(); } catch {} resolve(ok); };
+      const onAd = () => done(true);
+      const t = setTimeout(() => done(false), ms);
+      d.addEventListener('advertisementreceived', onAd);
+      d.watchAdvertisements({ signal: ctl.signal }).catch(() => done(false));
+    });
+  }
   async function tryRestore() {
     if (prefs.sim && prefs.dev) { connect(false); return; }
-    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
-    const id = store.get('deviceId', null);
-    if (!id) return;
+    renderAuto();
+    if (!prefs.autoConnect || !canAuto()) return;
     try {
       const list = await navigator.bluetooth.getDevices();
-      const d = list.find(x => x.id === id);
-      if (!d) return;
+      const id = store.get('deviceId', null);
+      const d = list.find(x => x.id === id) || list.find(x => /hue|iris/i.test(x.name || '')) || (list.length === 1 ? list[0] : null);
+      if (!d) { renderAuto(); return; }
       device = d;
+      store.set('deviceId', d.id);
       device.addEventListener('gattserverdisconnected', onDisconnect);
       wantConnected = true;
+      setStatus('busy');
       log('Reconnecting to ' + (d.name || 'your light') + '…');
-      await openGatt(true);
+      try { await openGatt(true); }
+      catch {
+        // The light may still be waking up: wait until it advertises, then try again.
+        await waitForAdvert(d, 12000);
+        try { await openGatt(true); }
+        catch { if (wantConnected) { setStatus('retry'); scheduleReconnect(); } }
+      }
     } catch {
       if (wantConnected) { setStatus('retry'); scheduleReconnect(); }
-    }
+    } finally { renderAuto(); }
   }
+  els.autoConnect.addEventListener('change', () => { prefs.autoConnect = els.autoConnect.checked; savePrefs(); renderAuto(); });
+  function openAutoSetup() {
+    const scheme = isEdge ? 'edge' : 'chrome';
+    els.autoBrowser.textContent = isEdge ? 'Edge' : 'Chrome';
+    els.flagUrl.value = scheme + '://flags/#enable-web-bluetooth-new-permissions-backend';
+    els.flagUrl2.value = scheme + '://flags/#enable-experimental-web-platform-features';
+    openDialog(els.autoDlg);
+  }
+  els.autoSetup.addEventListener('click', openAutoSetup);
+  els.autoHint.addEventListener('click', openAutoSetup);
+  const copyField = (input, btn) => async () => {
+    try { await navigator.clipboard.writeText(input.value); } catch { input.select(); document.execCommand && document.execCommand('copy'); }
+    btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  };
+  els.flagCopy.addEventListener('click', copyField(els.flagUrl, els.flagCopy));
+  els.flagCopy2.addEventListener('click', copyField(els.flagUrl2, els.flagCopy2));
 
   async function readState() {
     try {
       if (chars.power) { const v = await chars.power.readValue(); light.on = v.getUint8(0) === 1; }
-      if (chars.bri) { const v = await chars.bri.readValue(); light.bri = clamp(v.getUint8(0), 1, 254); }
+      if (chars.bri) { const v = await chars.bri.readValue(); light.bri = clamp(v.getUint8(0), 1, 254); out.bri = light.bri; }
       if (chars.xy && light.mode === 'color') {
         const v = await chars.xy.readValue();
         if (v.byteLength >= 4) {
           const x = v.getUint16(0, true) / 65535, y = v.getUint16(2, true) / 65535;
           if (x > 0 && y > 0) {
+            out.xy = [x, y];
             const hx = xyToHex(x, y);
             // Keep the saved color if the light reports almost the same thing (avoids rounding drift).
             const [a, b] = hexToXY(light.hex);
@@ -1044,43 +1152,90 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   }
   const whenIdle = () => (!writing && !pending.size) ? Promise.resolve() : new Promise(r => idleWaiters.push(r));
 
+  // ---------- Smooth changes ----------
+  // The lamp switches instantly over Bluetooth, so Iris fades by sending small steps.
+  const out = { xy: null, bri: null };
+  let fadeTok = null;
+  const fadeMs = () => Math.max(0, +prefs.fade || 0);
+  function outXY(xy, fromFade) { if (!fromFade) fadeTok = null; out.xy = xy; send('xy', enc.xy(xy)); }
+  function outBri(b, fromFade) { if (!fromFade) fadeTok = null; out.bri = b; send('bri', enc.bri(b)); }
+  function outCt(K) { fadeTok = null; out.xy = kelvinToXY(K); send('ct', enc.ct(K)); }
+  const ease = p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+  async function fadeSend(toXY, toBri, ctK, ms) {
+    const tok = {}; fadeTok = tok;
+    const fromXY = out.xy || toXY, fromBri = out.bri != null ? out.bri : toBri;
+    const moveXY = toXY && fromXY && (Math.abs(toXY[0] - fromXY[0]) + Math.abs(toXY[1] - fromXY[1]) > 0.0008);
+    const t0 = performance.now();
+    for (;;) {
+      if (fadeTok !== tok) return;
+      const p = Math.min(1, (performance.now() - t0) / ms), e = ease(p);
+      if (moveXY) outXY([fromXY[0] + (toXY[0] - fromXY[0]) * e, fromXY[1] + (toXY[1] - fromXY[1]) * e], true);
+      else if (toXY && p >= 1) out.xy = toXY;
+      if (fromBri !== toBri) outBri(Math.round(fromBri + (toBri - fromBri) * e), true);
+      if (p >= 1) break;
+      await whenIdle();
+      await sleep(ready ? 60 : ms);
+    }
+    if (fadeTok === tok) { if (ctK) send('ct', enc.ct(ctK)); fadeTok = null; }
+  }
+  // Send a color (xy, plus ct for whites) and brightness, fading when asked.
+  function applyOut(xy, bri, ctK, fade) {
+    const ms = fade ? fadeMs() : 0;
+    const wasOff = !light.on;
+    light.on = true;
+    if (ms > 0 && ready && (wasOff || out.xy)) {
+      if (wasOff) { outBri(1); outXY(xy); send('power', enc.power(true)); out.bri = 1; }
+      fadeSend(xy, bri, ctK, ms);
+    } else {
+      if (wasOff) send('power', enc.power(true));
+      if (ctK) outCt(ctK); else outXY(xy);
+      outBri(bri);
+    }
+    return ms;
+  }
+
   // ---------- Light actions ----------
   const colorBri = b => prefs.fullBri ? FULL : (b != null ? b : light.bri);
 
-  function setPower(on) {
+  function setPower(on, fade = true) {
     if (!on && fx) stopEffect(false);
+    const wasOn = light.on;
     light.on = on; saveLight();
-    send('power', enc.power(on));
-    render();
+    let ms = 0;
+    if (on && !wasOn && fade && fadeMs() && ready) {
+      // Turn on dark, then fade up to the saved brightness.
+      outBri(1); send('power', enc.power(true)); out.bri = 1;
+      ms = fadeMs(); fadeSend(null, light.bri, null, ms);
+    } else {
+      fadeTok = null;
+      send('power', enc.power(on));
+    }
+    render(ms);
   }
   function powerOnIfOff() { if (!light.on) { light.on = true; send('power', enc.power(true)); } }
   function setBri(v) {
     light.bri = clamp(Math.round(v), 1, 254); saveLight();
     powerOnIfOff();
-    if (!fx) send('bri', enc.bri(light.bri));
+    if (!fx) outBri(light.bri);
     render();
   }
   function setColor(hex, opts = {}) {
     if (fx && !opts.keepFx) stopEffect(false);
     light.mode = 'color'; light.hex = hex.toLowerCase(); light.label = opts.label || '';
-    powerOnIfOff();
-    send('xy', enc.xy(hexToXY(light.hex)));
-    const b = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
-    if (b !== light.bri || opts.forceBri) { light.bri = b; send('bri', enc.bri(b)); }
-    saveLight(); render();
+    light.bri = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
+    const ms = applyOut(hexToXY(light.hex), light.bri, null, opts.fade);
+    saveLight(); render(ms);
   }
   function setWhite(K, opts = {}) {
     if (fx && !opts.keepFx) stopEffect(false);
     light.mode = 'white'; light.kelvin = clamp(Math.round(K), 2000, 6500); light.label = opts.label || '';
-    powerOnIfOff();
-    send('ct', enc.ct(light.kelvin));
-    const b = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
-    if (b !== light.bri || opts.forceBri) { light.bri = b; send('bri', enc.bri(b)); }
-    saveLight(); render();
+    light.bri = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
+    const ms = applyOut(kelvinToXY(light.kelvin), light.bri, light.kelvin, opts.fade);
+    saveLight(); render(ms);
   }
-  function applyState(s, exact = false) {
+  function applyState(s, exact = false, fade = true) {
     if (s.on === false) { setPower(false); return; }
-    const o = { label: s.label };
+    const o = { label: s.label, fade };
     if (exact) o.exactBri = s.bri; else o.bri = s.bri;
     if (s.mode === 'white') setWhite(s.kelvin, o); else setColor(s.hex, o);
   }
@@ -1088,7 +1243,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   function stateLabel(s = light) { return s.label || (s.mode === 'white' ? s.kelvin + 'K white' : s.hex.toUpperCase()); }
 
   // ---------- Render ----------
-  function render() {
+  function render(ms) {
+    root.setProperty('--fade', (ms != null ? ms : 150) + 'ms');
     const view = fx && fxView ? fxView : { hex: displayHex(), bri: light.bri };
     root.setProperty('--lamp', view.hex);
     root.setProperty('--glow', (view.bri / 254).toFixed(3));
@@ -1207,7 +1363,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       const b = document.createElement('button');
       b.className = 'dot'; b.type = 'button'; b.dataset.hex = hex; b.style.setProperty('--c', hex);
       b.title = hex.toUpperCase(); b.setAttribute('aria-label', 'Color ' + hex.toUpperCase());
-      b.addEventListener('click', () => { setColor(hex); addRecent(hex); });
+      b.addEventListener('click', () => { setColor(hex, { fade: true }); addRecent(hex); });
       return b;
     }));
   }
@@ -1218,7 +1374,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       b.className = 'chip'; b.type = 'button'; b.dataset.k = k;
       const i = document.createElement('i'); i.style.setProperty('--c', kelvinToHex(k));
       b.append(i, document.createTextNode(n));
-      b.addEventListener('click', () => setWhite(k, { label: n + ' white' }));
+      b.addEventListener('click', () => setWhite(k, { label: n + ' white', fade: true }));
       return b;
     }));
   }
@@ -1233,7 +1389,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       const b = document.createElement('button');
       b.className = 'dot'; b.type = 'button'; b.style.setProperty('--c', hex); b.title = hex.toUpperCase();
       b.setAttribute('aria-label', 'Recent color ' + hex.toUpperCase());
-      b.addEventListener('click', () => setColor(hex));
+      b.addEventListener('click', () => setColor(hex, { fade: true }));
       return b;
     }));
   }
@@ -1266,7 +1422,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   });
 
   els.modeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.mode === 'white') setWhite(light.kelvin); else setColor(light.hex);
+    if (b.dataset.mode === 'white') setWhite(light.kelvin, { fade: true }); else setColor(light.hex, { fade: true });
     if (b.dataset.mode === 'color') requestAnimationFrame(drawWheel);
   }));
   els.kelvin.addEventListener('input', () => setWhite(+els.kelvin.value));
@@ -1277,7 +1433,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     if (!v.startsWith('#')) v = '#' + v;
     if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + v.slice(1).split('').map(c => c + c).join('');
     if (!/^#[0-9a-f]{6}$/i.test(v)) { toast('Type a color code like #FF2424.', true); return; }
-    setColor(v); addRecent(v);
+    setColor(v, { fade: true }); addRecent(v);
   }
   els.hexGo.addEventListener('click', applyHexInput);
   els.hexIn.addEventListener('keydown', e => { if (e.key === 'Enter') applyHexInput(); });
@@ -1290,21 +1446,27 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     const a = cols[i], b = cols[(i + 1) % n];
     return ph < 1 - fade ? a : mixHex(a, b, (ph - (1 - fade)) / fade);
   }
+  function drift(s, t, next, holdS, glideS) {
+    if (!s.to) { s.from = s.to = next(); s.t = t; }
+    const el = t - s.t;
+    if (el >= holdS + glideS) { s.from = s.to; s.to = next(s.from); s.t = t; return s.from; }
+    return el <= holdS ? s.from : mixHex(s.from, s.to, ease((el - holdS) / glideS));
+  }
   const FX_LIST = [
-    { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 450,
-      frame: (t, s) => { if (!s.c || Math.random() < .5) s.c = pick([RED, GREEN, GOLD, RED, GREEN, XBLUE].filter(c => c !== s.c)); return { hex: s.c, f: rand(.7, 1), hold: rand(300, 750) }; } },
+    { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 200,
+      frame: (t, s, k) => ({ hex: drift(s, t * k, prev => pick([RED, GREEN, GOLD, RED, GREEN, XBLUE].filter(c => c !== prev)), 2.5, 1.5) }) },
     { id: 'christmas', name: 'Merry cycle', cat: 'Christmas', colors: [RED, GREEN, GOLD, WARM], ms: 220,
       frame: (t, s, k) => ({ hex: cycle([RED, GREEN, GOLD, WARM], t * k, 6, .45) }) },
     { id: 'candycane', name: 'Candy cane', cat: 'Christmas', colors: ['#ff1428', SOFTWHITE, '#ff1428'], ms: 200,
       frame: (t, s, k) => ({ hex: cycle(['#ff1428', SOFTWHITE], t * k, 2.4, .3) }) },
     { id: 'fireplace', name: 'Fireplace', cat: 'Christmas', colors: ['#ff3c00', '#ff7a12', '#ffb04a'], ms: 260,
-      frame: () => ({ hex: mixHex('#ff3c00', '#ff9a1f', Math.random()), f: rand(.6, 1), hold: rand(140, 380) }) },
+      frame: (t, s) => { s.f = (s.f || .85) * .6 + rand(.7, 1) * .4; s.m = (s.m ?? .5) * .6 + Math.random() * .4; return { hex: mixHex('#ff3c00', '#ff9a1f', s.m), f: s.f, hold: rand(220, 520) }; } },
     { id: 'snow', name: 'Snowfall', cat: 'Christmas', colors: [SNOW, '#bfe6ff', '#ffffff'], ms: 300,
-      frame: (t, s, k) => ({ hex: mixHex(SNOW, '#a9dcff', .5 + .5 * Math.sin(t * .6 * k)), f: Math.random() < .08 ? 1 : .8 + .15 * Math.sin(t * 1.3 * k) }) },
+      frame: (t, s, k) => ({ hex: mixHex(SNOW, '#a9dcff', .5 + .5 * Math.sin(t * .6 * k)), f: .85 + .15 * Math.sin(t * 1.3 * k) }) },
     { id: 'starry', name: 'Starry night', cat: 'Christmas', colors: ['#1d2fbf', '#3b2cff', '#ffd27a'], ms: 350,
-      frame: (t, s, k) => Math.random() < .07 ? { hex: '#ffd27a', f: 1, hold: 220 } : { hex: mixHex('#1d2fbf', '#3b2cff', .5 + .5 * Math.sin(t * .4 * k)), f: .8 + .2 * Math.sin(t * .5 * k) } },
+      frame: (t, s, k) => { const star = Math.max(0, Math.sin(t * .23 * k) ** 24); return { hex: mixHex(mixHex('#1d2fbf', '#3b2cff', .5 + .5 * Math.sin(t * .4 * k)), '#ffd27a', star), f: .8 + .2 * Math.max(star, .5 + .5 * Math.sin(t * .5 * k)) }; } },
     { id: 'candle', name: 'Candlelight', cat: 'Cozy', colors: ['#ff7a12', '#ffb04a'], ms: 140,
-      frame: (t, s) => { s.f = (s.f || .8) * .5 + rand(.65, 1) * .5; return { hex: mixHex('#ff7a12', '#ffb04a', rand(0, .6)), f: s.f, hold: rand(100, 220) }; } },
+      frame: (t, s) => { s.f = (s.f || .85) * .6 + rand(.72, 1) * .4; return { hex: mixHex('#ff7a12', '#ffb04a', rand(0, .5)), f: s.f, hold: rand(160, 360) }; } },
     { id: 'breathe', name: 'Breathe', cat: 'Cozy', colors: ['#6c8cff', '#1b2140'], ms: 160, usesCurrent: true,
       frame: (t, s, k, c) => ({ hex: c.startHex, f: .15 + .85 * (.5 - .5 * Math.cos(2 * Math.PI * t * k / 6)) }) },
     { id: 'aurora', name: 'Aurora', cat: 'Cozy', colors: ['#10e0a0', '#2a7bff', '#9b4dff'], ms: 260,
@@ -1313,15 +1475,15 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       frame: (t, s, k) => ({ hex: hsvToHex(200 + 22 * Math.sin(t * .35 * k) + 8 * Math.sin(t * 1.1 * k), 1, 1), f: .85 + .15 * Math.sin(t * .8 * k) }) },
     { id: 'rainbow', name: 'Rainbow', cat: 'Party', colors: ['#ff0000', '#ffbf00', '#00ff40', '#0080ff', '#bf00ff', '#ff0000'], ms: 220,
       frame: (t, s, k) => ({ hex: hsvToHex((t * 24 * k) % 360, 1, 1) }) },
-    { id: 'party', name: 'Party', cat: 'Party', colors: ['#ff00d4', '#00e1ff', '#ffe600', '#7a00ff'], ms: 500,
-      frame: (t, s) => { s.h = ((s.h ?? rand(0, 360)) + rand(90, 220)) % 360; return { hex: hsvToHex(s.h, 1, 1), hold: 520 }; } },
+    { id: 'party', name: 'Party', cat: 'Party', colors: ['#ff00d4', '#00e1ff', '#ffe600', '#7a00ff'], ms: 160,
+      frame: (t, s, k) => { s.h = s.h ?? rand(0, 360); return { hex: drift(s, t * k, () => hsvToHex((s.h = (s.h + rand(90, 220)) % 360), 1, 1), 1.2, .8) }; } },
     { id: 'sunrise', name: 'Sunrise', cat: 'Wake & sleep', colors: ['#ff2000', '#ff7a10', kelvinToHex(5000)], ms: 1000, timed: true,
       frame: (t, s, k, c) => {
         const p = t / c.dur; if (p >= 1) return { done: true };
         const hex = p < .35 ? mixHex('#ff2000', '#ff7a10', p / .35) : p < .7 ? mixHex('#ff7a10', kelvinToHex(2700), (p - .35) / .35) : mixHex(kelvinToHex(2700), kelvinToHex(5000), (p - .7) / .3);
         return { hex, f: .01 + .99 * Math.pow(p, 1.6), abs: true };
       },
-      end: () => setWhite(5000, { exactBri: FULL, label: 'Daylight' }) },
+      end: () => setWhite(5000, { exactBri: FULL, label: 'Daylight', fade: true }) },
     { id: 'sunset', name: 'Sunset', cat: 'Wake & sleep', colors: [kelvinToHex(4000), '#ff7a10', '#3a0a00'], ms: 1000, timed: true,
       frame: (t, s, k, c) => {
         const p = t / c.dur; if (p >= 1) return { done: true };
@@ -1330,8 +1492,9 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       end: () => setPower(false) }
   ];
   const FX = Object.fromEntries(FX_LIST.map(f => [f.id, f]));
-  const SPEEDS = [.45, .7, 1, 1.5, 2.3];
-  const speedMul = () => SPEEDS[clamp(prefs.fxSpeed, 1, 5) - 1];
+  // Speeds are tuned for a calm background light. 1 is the slowest.
+  const SPEEDS = [.2, .35, .55, .85, 1.3];
+  const speedMul = () => SPEEDS[clamp(prefs.fxSpeed2, 1, 5) - 1];
 
   let fx = null, fxView = null;
   function paint(hex, f = 1, abs = false) {
@@ -1339,7 +1502,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     fxView = { hex, bri };
     root.setProperty('--lamp', hex);
     root.setProperty('--glow', (bri / 254).toFixed(3));
-    if (ready) { send('xy', enc.xy(hexToXY(hex))); send('bri', enc.bri(bri)); }
+    root.setProperty('--fade', '300ms');
+    if (ready) { outXY(hexToXY(hex)); outBri(bri); }
   }
   async function startEffect(id, opts = {}) {
     const def = FX[id]; if (!def) return;
@@ -1352,6 +1516,18 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     render();
     log('Effect started: ' + def.name + '.');
     const st = {};
+    // Glide into the effect's first color instead of jumping to it.
+    if (!def.timed && ready && fadeMs()) {
+      const first = def.frame(0, st, speedMul(), fx);
+      if (first && !first.done) {
+        const bri = clamp(Math.round(first.abs ? (first.f ?? 1) * 254 : light.bri * (first.f ?? 1)), 1, 254);
+        const ms = Math.min(fadeMs(), 4000);
+        fxView = { hex: first.hex, bri }; render(ms);
+        await fadeSend(hexToXY(first.hex), bri, null, ms);
+        if (!fx || fx.token !== token) return;
+        fx.t0 = performance.now();
+      }
+    }
     while (fx && fx.token === token) {
       const t = (performance.now() - fx.t0) / 1000;
       const out = def.frame(t, st, speedMul(), fx);
@@ -1393,8 +1569,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     return b;
   }
   function buildFx() { els.fxGrid.replaceChildren(...FX_LIST.map(d => fxCard(d))); }
-  els.fxSpeed.value = prefs.fxSpeed;
-  els.fxSpeed.addEventListener('input', () => { prefs.fxSpeed = +els.fxSpeed.value; savePrefs(); });
+  els.fxSpeed.value = prefs.fxSpeed2;
+  els.fxSpeed.addEventListener('input', () => { prefs.fxSpeed2 = +els.fxSpeed.value; savePrefs(); });
   els.fxDur.value = String(prefs.fxDur);
   els.fxDur.addEventListener('change', () => { prefs.fxDur = +els.fxDur.value; savePrefs(); if (fx && fx.def.timed) fx.dur = prefs.fxDur * 60; });
   els.fxStop.addEventListener('click', () => stopEffect(true));
@@ -1403,7 +1579,6 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   // ---------- Scenes ----------
   const SCENES = {
     christmas: { name: 'Christmas', list: [
-      { fx: 'twinkle' }, { fx: 'christmas' }, { fx: 'candycane' }, { fx: 'fireplace' }, { fx: 'snow' }, { fx: 'starry' },
       { name: 'Holly berry', mode: 'color', hex: '#d4001c' },
       { name: 'Mistletoe', mode: 'color', hex: '#0fae38' },
       { name: 'Gold star', mode: 'color', hex: '#ffb300' },
@@ -1413,7 +1588,13 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       { name: 'Mulled wine', mode: 'color', hex: '#b0002f' },
       { name: 'Frost', mode: 'color', hex: '#7fcfff' },
       { name: 'Pine forest', mode: 'color', hex: '#0b8f4a' },
-      { name: 'Hot cocoa', mode: 'white', kelvin: 2200 }
+      { name: 'Hot cocoa', mode: 'white', kelvin: 2200 },
+      { name: 'Cranberry', mode: 'color', hex: '#c4123f' },
+      { name: 'Tree lights', mode: 'color', hex: '#ff9a3c' },
+      { name: 'Elf', mode: 'color', hex: '#3ccf4e' },
+      { name: 'Ice palace', mode: 'color', hex: '#bfe9ff' },
+      { name: 'Tinsel', mode: 'white', kelvin: 6000 },
+      { name: 'Red nose', mode: 'color', hex: '#ff0000' }
     ]},
     everyday: { name: 'Everyday', list: [
       { name: 'Energize', mode: 'white', kelvin: 6500 },
@@ -1426,7 +1607,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       { name: 'Do not disturb', mode: 'color', hex: '#ff2424' },
       { name: 'Available', mode: 'color', hex: '#18d860' },
       { name: 'Nightlight', mode: 'color', hex: '#ff5a00' },
-      { fx: 'sunrise' }, { fx: 'sunset' }
+      { name: 'Wake up', mode: 'white', kelvin: 5500 },
+      { name: 'Bedtime', mode: 'color', hex: '#ff3a00' }
     ]},
     moods: { name: 'Moods', list: [
       { name: 'Sunset', mode: 'color', hex: '#ff6a2b' },
@@ -1441,7 +1623,10 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       { name: 'Lime', mode: 'color', hex: '#b4ff1a' },
       { name: 'Amber', mode: 'color', hex: '#ffbf00' },
       { name: 'Ruby', mode: 'color', hex: '#e0115f' },
-      { fx: 'aurora' }, { fx: 'ocean' }, { fx: 'rainbow' }, { fx: 'party' }
+      { name: 'Mint', mode: 'color', hex: '#3dffb0' },
+      { name: 'Sky', mode: 'color', hex: '#5ab4ff' },
+      { name: 'Coral', mode: 'color', hex: '#ff5e4d' },
+      { name: 'Violet', mode: 'color', hex: '#8b4dff' }
     ]}
   };
   function sceneCard(sc) {
@@ -1542,13 +1727,13 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     const prev = { ...light };
     try {
       for (let i = 0; i < 4; i++) {
-        setColor(prefs.alertColor, { exactBri: FULL, forceBri: true, label: 'Time’s up' });
+        setColor(prefs.alertColor, { exactBri: FULL, label: 'Time’s up' });
         await whenIdle(); await sleep(500);
-        light.bri = 25; send('bri', enc.bri(25)); render();
+        light.bri = 25; outBri(25); render();
         await whenIdle(); await sleep(500);
       }
-      if (prefs.afterAlert === 'restore') applyState(prev, true);
-      else setColor(prefs.alertColor, { exactBri: FULL, forceBri: true });
+      if (prefs.afterAlert === 'restore') applyState(prev, true, false);
+      else setColor(prefs.alertColor, { exactBri: FULL });
     } finally { flashing = false; }
   }
   els.timerBtn.addEventListener('click', () => timerEnd ? stopTimer(false) : startTimer());
@@ -1629,8 +1814,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   function applyEntry(e) {
     if (e.action === 'off') setPower(false);
     else if (e.action === 'fx') { light.bri = e.bri; saveLight(); startEffect(e.fx, { keepBri: true }); }
-    else if (e.action === 'white') setWhite(e.kelvin, { exactBri: e.bri, forceBri: true });
-    else setColor(e.hex, { exactBri: e.bri, forceBri: true });
+    else if (e.action === 'white') setWhite(e.kelvin, { exactBri: e.bri, fade: true });
+    else setColor(e.hex, { exactBri: e.bri, fade: true });
   }
   function entryColor(e) { return e.action === 'white' ? kelvinToHex(e.kelvin) : e.action === 'fx' && FX[e.fx] ? 'linear-gradient(135deg,' + FX[e.fx].colors.join(',') + ')' : e.hex; }
   function renderSchedule() {
@@ -1737,8 +1922,11 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   els.haloSw.checked = prefs.halo;
   document.body.dataset.halo = String(prefs.halo);
   els.haloSw.addEventListener('change', () => { prefs.halo = els.haloSw.checked; savePrefs(); document.body.dataset.halo = String(prefs.halo); });
+  els.fadeSel.value = String(prefs.fade);
+  if (els.fadeSel.value !== String(prefs.fade)) { prefs.fade = 3000; els.fadeSel.value = '3000'; }
+  els.fadeSel.addEventListener('change', () => { prefs.fade = +els.fadeSel.value; savePrefs(); toast(prefs.fade ? 'Colors now change over ' + prefs.fade / 1000 + ' s.' : 'Colors now change instantly.'); });
   els.fullBri.checked = prefs.fullBri;
-  els.fullBri.addEventListener('change', () => { prefs.fullBri = els.fullBri.checked; savePrefs(); if (prefs.fullBri && light.on && !fx) setBri(FULL); });
+  els.fullBri.addEventListener('change', () => { prefs.fullBri = els.fullBri.checked; savePrefs(); if (prefs.fullBri && light.on && !fx) { light.bri = FULL; saveLight(); fadeSend(null, FULL, null, fadeMs() || 1); render(fadeMs()); } });
   els.setConnect.addEventListener('click', () => connect(false));
   els.setDisconnect.addEventListener('click', disconnect);
   els.setForget.addEventListener('click', forgetLight);
@@ -1951,6 +2139,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     else if (e.key === 'ArrowUp' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri + 25); }
     else if (e.key === 'ArrowDown' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri - 25); }
     else if (/^[1-6]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
+    else if ((e.key === 'c' || e.key === 'C') && !ready && !connecting) connect(false);
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------
@@ -1993,7 +2182,12 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
   setInterval(tickSchedule, 15000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tickSchedule(); updateTimers(); } });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    tickSchedule(); updateTimers();
+    if (wantConnected && !ready && !connecting && device) { retry = 0; clearTimeout(reconnectTimer); openGatt(false).catch(() => { if (wantConnected) scheduleReconnect(); }); }
+  });
+  window.addEventListener('online', () => { if (wantConnected && !ready && !connecting && device) openGatt(false).catch(() => {}); });
 })();
 </script>
 </body>

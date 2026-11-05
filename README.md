@@ -5,13 +5,22 @@ Everything fits on one screen:
 
 - **Color:** color wheel, 36-color palette, color code input, recent colors and favorites.
 - **White:** warm to cool slider with Candle, Warm, Soft, Neutral, Daylight and Cool presets.
-- **Scenes:** Christmas, Everyday and Moods.
+- **Scenes:** steady colors in Christmas, Everyday and Moods sets.
 - **Effects:** Christmas lights, Merry cycle, Candy cane, Fireplace, Snowfall, Starry night, Candlelight, Breathe, Aurora, Ocean, Rainbow, Party, Sunrise and Sunset.
 - **Timers:** focus timer that flashes the lamp, and a sleep timer that fades it out.
 - **Schedule:** colors, whites, effects or off at set times and days.
 - **Settings:** theme, page glow, full brightness, install, pairing help, diagnostics, activity, DEV.
 
 Colors and scenes always use full brightness. You can turn this off in Settings.
+
+**Scenes vs effects:** a scene sets one steady color, and the lamp keeps it even after you close Iris.
+An effect keeps changing the light on its own, and runs only while Iris is open.
+
+**Smooth changes:** scenes, palette colors, favorites and turning on fade over 3 seconds by default.
+Settings → Light → Color changes goes from Instant to Very slow (10 s).
+
+**Automatic reconnect:** Iris reconnects to your lamp when it opens. Chrome and Edge need one
+setting for this, and Settings → Light → Turn on automatic reconnect shows how to enable it.
 
 ## Install it like a Windows app
 
