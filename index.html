@@ -48,6 +48,7 @@ body[data-on="false"] .halo{ opacity:0; }
 .status[data-state="on"]::before{ background:var(--ok); }
 .status[data-state="busy"]::before, .status[data-state="retry"]::before{ background:var(--warn); }
 
+.version{ margin:.35rem 0 0; font-size:.8125rem; color:var(--muted); font-variant-numeric:tabular-nums; }
 .orb{ display:block; margin:2.25rem auto 1rem; width:min(240px, 62vw); aspect-ratio:1; border-radius:50%; border:0; padding:0; cursor:pointer;
   background:radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--lamp) 50%, white) 0%, var(--lamp) 48%, color-mix(in srgb, var(--lamp) 68%, black) 100%);
   box-shadow:0 0 calc(30px + var(--glow) * 90px) calc(var(--glow) * 16px) color-mix(in srgb, var(--lamp) 55%, transparent), inset 0 -12px 30px rgba(0,0,0,.18);
@@ -174,6 +175,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       <h1>Iris</h1>
       <span id="status" class="status" data-state="off" role="status">Not connected</span>
     </header>
+    <p class="version" id="version"></p>
 
     <button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button>
     <p id="orbHint" class="orb-hint">Click the lamp to turn it off</p>
@@ -323,6 +325,10 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
 <script>
 (() => {
   'use strict';
+
+  // Bump on every change so you can see when the page has refreshed.
+  const VERSION = { name: 'v1.2', date: 'Nov 5, 2026', note: 'version label' };
+  document.getElementById('version').textContent = 'Version ' + VERSION.name + ' · ' + VERSION.date;
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -1005,7 +1011,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     const wasReady = ready;
     ready = false; pending.clear(); // pause normal sending during the test
     try {
-      say('Iris diagnostics, ' + new Date().toLocaleString());
+      say('Iris diagnostics ' + VERSION.name + ', ' + new Date().toLocaleString());
       say('System: ' + osName() + ' | ' + navigator.userAgent);
       say('Web Bluetooth available: ' + !!navigator.bluetooth);
       if (!device) { say('\nNo light chosen yet. Click “Connect your Iris” first, then run the test again.'); return; }

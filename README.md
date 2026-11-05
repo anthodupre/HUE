@@ -37,3 +37,9 @@ python3 -m http.server 8000
 ```
 
 Puis ouvre `http://localhost:8000` dans Chrome.
+
+## Version
+
+Le numéro de version s'affiche sous le titre « Iris ». Il change à chaque mise à jour,
+ce qui permet de voir si la page a bien été rafraîchie. Il se trouve dans `index.html`
+(constante `VERSION`).
