@@ -1,13 +1,26 @@
 {
+  "id": "./",
   "name": "Iris",
   "short_name": "Iris",
-  "description": "Contrôle ta lampe Philips Hue Iris en Bluetooth.",
+  "description": "Control your Philips Hue Iris over Bluetooth: colors, scenes, Christmas effects, timers and schedules.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#15171c",
-  "theme_color": "#6c8cff",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#0f1115",
+  "theme_color": "#15171c",
+  "categories": ["lifestyle", "utilities"],
+  "launch_handler": { "client_mode": "focus-existing" },
   "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Christmas lights", "url": "./?do=twinkle", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fireplace", "url": "./?do=fireplace", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Focus", "url": "./?do=focus", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Turn off", "url": "./?do=off", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
   ]
 }

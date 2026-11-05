@@ -5,345 +5,621 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Iris</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%A1%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Control your Philips Hue Iris over Bluetooth: colors, scenes, Christmas effects, timers and schedules.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon.svg">
-<meta name="theme-color" content="#6c8cff">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#15171c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --wall:#e7e8ec; --panel:#f2f3f6; --ink:#1c2230; --muted:#5b6372; --line:#d2d6dd; --field:#ffffff; --danger:#b42318; --ok:#1f9d5c; --warn:#c98a00;
-  --lamp:#6c8cff; --glow:.8;
-  --r-s:8px; --r-m:14px;
+  --bg:#eceef2; --surface:#f5f6f8; --card:#ffffff; --ink:#141922; --muted:#5d6574; --line:#d9dde4; --soft:#e5e8ed;
+  --danger:#b42318; --ok:#1f9d5c; --warn:#c98a00;
+  --lamp:#6c8cff; --glow:1;
+  --r-s:10px; --r-m:16px; --r-l:22px;
+  --shadow:0 1px 2px rgba(16,20,30,.06), 0 6px 18px rgba(16,20,30,.06);
+  --tb:env(titlebar-area-height, 0px);
   font-family:"Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
-  :root{ --wall:#15171c; --panel:#1c1f26; --ink:#e9ebef; --muted:#9aa1ad; --line:#2d313a; --field:#23262e; --danger:#ff8a80; --ok:#4fd18b; --warn:#f0b429; color-scheme:dark; }
+  :root:not([data-theme="light"]){ --bg:#0f1115; --surface:#151820; --card:#1b1f27; --ink:#eceef2; --muted:#9aa2b0; --line:#2a2f39; --soft:#232832; --danger:#ff8a80; --ok:#4fd18b; --warn:#f0b429; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25); color-scheme:dark; }
 }
+:root[data-theme="dark"]{ --bg:#0f1115; --surface:#151820; --card:#1b1f27; --ink:#eceef2; --muted:#9aa2b0; --line:#2a2f39; --soft:#232832; --danger:#ff8a80; --ok:#4fd18b; --warn:#f0b429; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25); color-scheme:dark; }
+
 *{ box-sizing:border-box; }
-html,body{ margin:0; }
-body{ background:var(--wall); color:var(--ink); font-size:16px; line-height:1.5; min-height:100vh; }
+html,body{ margin:0; height:100%; overflow:hidden; }
+body{ background:var(--bg); color:var(--ink); font-size:15px; line-height:1.45; }
 [hidden]{ display:none !important; }
+button{ font:inherit; color:inherit; }
+:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+h2{ font-size:1.05rem; font-weight:600; margin:0; letter-spacing:-.005em; }
+h3{ font-size:.8125rem; font-weight:600; margin:0 0 .5rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
 
-/* The page is the wall the lamp washes */
+/* Installed app title bar (Windows "window controls overlay") */
+.titlebar{ position:fixed; z-index:20; top:env(titlebar-area-y, 0); left:env(titlebar-area-x, 0); width:env(titlebar-area-width, 0); height:env(titlebar-area-height, 0); -webkit-app-region:drag; app-region:drag; display:flex; align-items:center; padding-left:14px; font-size:.8125rem; color:var(--muted); overflow:hidden; }
+
 .halo{ position:fixed; inset:0; pointer-events:none; z-index:0; transition:opacity .6s ease;
-  background:radial-gradient(65vmax 65vmax at 16% 30%, color-mix(in srgb, var(--lamp) calc(var(--glow) * 36%), transparent), transparent 70%); }
-body[data-on="false"] .halo{ opacity:0; }
+  background:radial-gradient(70vmax 70vmax at 14% 30%, color-mix(in srgb, var(--lamp) calc(var(--glow) * 34%), transparent), transparent 70%); }
+body[data-on="false"] .halo, body[data-halo="false"] .halo{ opacity:0; }
 
-.app{ position:relative; z-index:1; display:grid; gap:2.5rem; max-width:1120px; margin:0 auto;
-  padding:max(1.5rem, env(safe-area-inset-top)) 1.25rem max(2.5rem, env(safe-area-inset-bottom)); }
-@media (min-width:900px){
-  .app{ grid-template-columns:340px minmax(0,1fr); gap:4.5rem; padding-top:3rem; }
-  .lamp-col{ position:sticky; top:2.5rem; align-self:start; }
-}
+/* Layout: one screen, no page scroll */
+.app{ position:relative; z-index:1; height:100dvh; display:grid; grid-template-columns:300px minmax(0,1fr); gap:clamp(24px, 3.5vw, 48px);
+  max-width:1400px; margin:0 auto; padding:calc(var(--tb) + clamp(14px, 3vh, 28px)) clamp(18px, 3vw, 36px) clamp(14px, 3vh, 28px); }
+.lamp{ display:flex; flex-direction:column; gap:clamp(8px, 1.6vh, 14px); min-height:0; }
+.main{ display:flex; flex-direction:column; min-height:0; min-width:0; }
 
 /* Lamp column */
-.brand{ display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-.brand h1{ font-size:2.25rem; font-weight:600; letter-spacing:-.02em; margin:0; line-height:1.1; }
-.status{ font-size:.875rem; padding:.25rem .75rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); display:inline-flex; align-items:center; gap:.45rem; background:var(--wall); white-space:nowrap; max-width:60%; overflow:hidden; text-overflow:ellipsis; }
+.brand{ display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+.brand h1{ font-size:2rem; font-weight:600; letter-spacing:-.02em; margin:0; line-height:1.05; }
+.version{ white-space:nowrap; margin:.2rem 0 0; font-size:.75rem; color:var(--muted); font-variant-numeric:tabular-nums; display:flex; gap:.4rem; align-items:center; }
+.dev-badge{ font-size:.6875rem; font-weight:700; letter-spacing:.06em; padding:.05rem .4rem; border-radius:4px; background:var(--warn); color:#111; }
+.status{ font-size:.8125rem; padding:.25rem .7rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); display:inline-flex; align-items:center; gap:.4rem; background:var(--card); white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis; margin-top:.3rem; }
 .status::before{ content:""; flex:none; width:.5rem; height:.5rem; border-radius:50%; background:var(--muted); }
 .status[data-state="on"]::before{ background:var(--ok); }
-.status[data-state="busy"]::before, .status[data-state="retry"]::before{ background:var(--warn); }
+.status[data-state="busy"]::before, .status[data-state="retry"]::before{ background:var(--warn); animation:blink 1s infinite; }
+@keyframes blink{ 50%{ opacity:.3; } }
 
-.version{ margin:.35rem 0 0; font-size:.8125rem; color:var(--muted); font-variant-numeric:tabular-nums; }
-.orb{ display:block; margin:2.25rem auto 1rem; width:min(240px, 62vw); aspect-ratio:1; border-radius:50%; border:0; padding:0; cursor:pointer;
-  background:radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--lamp) 50%, white) 0%, var(--lamp) 48%, color-mix(in srgb, var(--lamp) 68%, black) 100%);
-  box-shadow:0 0 calc(30px + var(--glow) * 90px) calc(var(--glow) * 16px) color-mix(in srgb, var(--lamp) 55%, transparent), inset 0 -12px 30px rgba(0,0,0,.18);
+.orb-wrap{ display:grid; place-items:center; padding:clamp(4px, 2vh, 18px) 0 0; }
+.orb{ width:clamp(110px, 27vh, 220px); aspect-ratio:1; border-radius:50%; border:0; padding:0; cursor:pointer;
+  background:radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--lamp) 45%, white) 0%, var(--lamp) 50%, color-mix(in srgb, var(--lamp) 70%, black) 100%);
+  box-shadow:0 0 calc(24px + var(--glow) * 80px) calc(var(--glow) * 14px) color-mix(in srgb, var(--lamp) 55%, transparent), inset 0 -12px 30px rgba(0,0,0,.18);
   filter:brightness(calc(.55 + var(--glow) * .45));
-  transition:box-shadow .5s ease, filter .3s ease, transform .15s ease; }
-.orb:active{ transform:scale(.98); }
-body[data-on="false"] .orb{ background:radial-gradient(circle at 50% 40%, var(--panel), var(--line)); box-shadow:inset 0 -10px 26px rgba(0,0,0,.14); filter:none; }
-.orb-hint{ text-align:center; color:var(--muted); font-size:.875rem; margin:0 0 1.75rem; }
+  transition:box-shadow .35s ease, filter .25s ease, transform .15s ease, background .25s ease; }
+.orb:active{ transform:scale(.97); }
+body[data-on="false"] .orb{ background:radial-gradient(circle at 50% 40%, var(--card), var(--soft)); box-shadow:inset 0 -10px 26px rgba(0,0,0,.12), 0 0 0 1px var(--line); filter:none; }
+.orb-hint{ text-align:center; color:var(--muted); font-size:.8125rem; margin:0; }
 
-.field{ display:block; margin:0 0 1.5rem; }
-.field-row{ display:flex; justify-content:space-between; gap:1rem; font-size:.9375rem; margin-bottom:.4rem; }
+.field-row{ display:flex; justify-content:space-between; gap:1rem; font-size:.875rem; margin-bottom:.15rem; }
 .field-row output{ color:var(--muted); font-variant-numeric:tabular-nums; }
-input[type=range]{ width:100%; accent-color:var(--ink); margin:0; }
 
-.btn{ font:inherit; font-size:.9375rem; font-weight:600; border-radius:999px; padding:.65rem 1.2rem; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; }
+/* Range sliders */
+input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:26px; background:transparent; margin:0; cursor:pointer; --track:var(--soft); }
+input[type=range]::-webkit-slider-runnable-track{ height:10px; border-radius:999px; background:var(--track); box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+input[type=range]::-moz-range-track{ height:10px; border-radius:999px; background:var(--track); }
+input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; margin-top:-6px; border-radius:50%; background:#fff; border:0; box-shadow:0 1px 4px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.08); }
+input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:0; box-shadow:0 1px 4px rgba(0,0,0,.35); }
+#bri{ --track:linear-gradient(90deg, #2a2a2a, var(--lamp)); }
+.k-track{ --track:linear-gradient(90deg, #ff8a2b, #ffb46b 22%, #ffe0bf 50%, #fff6ee 70%, #dbe6ff); }
+
+.bri-chips{ display:flex; gap:.35rem; margin-top:.35rem; }
+.bri-chips button{ flex:1; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:.25rem 0; font-size:.75rem; font-weight:600; color:var(--muted); cursor:pointer; }
+.bri-chips button:hover{ color:var(--ink); border-color:var(--muted); }
+
+.now{ display:flex; align-items:center; gap:.7rem; padding:.6rem .7rem; border-radius:var(--r-m); background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); }
+.now-dot{ width:34px; height:34px; border-radius:50%; flex:none; background:var(--c, var(--lamp)); box-shadow:0 0 0 1px var(--line); }
+.now-text{ flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.25; }
+.now-k{ font-size:.6875rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+#nowLabel{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.now-extra{ font-size:.75rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+.btn{ font-size:.875rem; font-weight:600; border-radius:999px; padding:.55rem 1.05rem; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; white-space:nowrap; }
 .btn:hover:not(:disabled){ border-color:var(--muted); }
-.btn.primary{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
-.btn.small{ padding:.35rem .85rem; font-size:.875rem; }
-.btn.link{ border:0; padding:.2rem 0; font-weight:500; color:var(--muted); text-decoration:underline; text-underline-offset:3px; border-radius:4px; }
+.btn.primary{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.btn.small{ padding:.3rem .75rem; font-size:.8125rem; }
+.btn.wide{ width:100%; }
+.btn.link{ border:0; background:none; padding:.15rem 0; font-weight:500; color:var(--muted); text-decoration:underline; text-underline-offset:3px; border-radius:4px; }
+.btn.danger{ color:var(--danger); }
 .btn:disabled{ opacity:.5; cursor:not-allowed; }
-:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
-.conn{ display:flex; flex-direction:column; align-items:flex-start; gap:.5rem; }
+.icon-btn{ width:34px; height:34px; border-radius:50%; display:inline-grid; place-items:center; border:1px solid var(--line); background:var(--card); cursor:pointer; padding:0; color:var(--ink); flex:none; }
+.icon-btn svg{ width:18px; height:18px; }
+.conn{ display:flex; flex-direction:column; align-items:center; gap:.35rem; }
+.notice{ background:var(--card); border:1px solid var(--line); border-left:3px solid var(--danger); padding:.6rem .8rem; border-radius:var(--r-s); font-size:.8125rem; margin:0; }
 
-.notice.pair{ border-left-color:var(--warn); margin-top:1.25rem; }
-.pair strong{ display:block; font-size:1rem; margin-bottom:.25rem; }
-.pair p{ margin:0 0 .5rem; }
-.pair ol{ margin:.5rem 0 .75rem; padding-left:1.2rem; }
-.pair li{ margin-bottom:.45rem; }
-.pair-actions{ display:flex; flex-wrap:wrap; gap:.5rem; }
-.notice{ background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--danger); padding:.75rem 1rem; border-radius:var(--r-s); font-size:.9375rem; margin:1rem 0 0; }
+/* Tabs */
+.tabs{ display:flex; gap:.25rem; padding:4px; border-radius:999px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); align-self:flex-start; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+.tab{ display:flex; align-items:center; gap:.45rem; border:0; background:transparent; color:var(--muted); padding:.5rem .95rem; border-radius:999px; cursor:pointer; font-weight:600; font-size:.875rem; white-space:nowrap; }
+.tab svg{ width:17px; height:17px; flex:none; }
+.tab:hover{ color:var(--ink); }
+.tab[aria-selected="true"]{ background:var(--ink); color:var(--bg); }
+.panes{ flex:1; min-height:0; position:relative; margin-top:clamp(12px, 2.4vh, 22px); }
+.pane{ position:absolute; inset:0; overflow:auto; scrollbar-width:thin; padding:2px 2px 8px; }
 
-details.tips{ margin-top:1.75rem; font-size:.9375rem; }
-details.tips summary{ cursor:pointer; font-weight:600; border-radius:4px; }
-details.tips ul{ padding-left:1.15rem; margin:.75rem 0 0; color:var(--muted); }
-details.tips li{ margin-bottom:.5rem; }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:var(--r-l); padding:clamp(14px, 2.2vh, 20px); box-shadow:var(--shadow); min-width:0; }
+.card-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+.sub{ color:var(--muted); font-size:.875rem; margin:.15rem 0 0; }
 
-/* Panels */
-.panels section{ padding:2.25rem 0; border-top:1px solid var(--line); }
-.panels section:first-child{ border-top:0; padding-top:.25rem; }
-h2{ font-size:1.375rem; font-weight:600; letter-spacing:-.01em; margin:0 0 .25rem; }
-h3{ font-size:1rem; font-weight:600; margin:1.75rem 0 .75rem; }
-.sub{ color:var(--muted); margin:0 0 1.25rem; max-width:62ch; }
+.seg{ display:inline-flex; padding:3px; border-radius:999px; background:var(--soft); }
+.seg button{ border:0; background:transparent; color:var(--muted); padding:.35rem .9rem; border-radius:999px; cursor:pointer; font-weight:600; font-size:.8125rem; }
+.seg button[aria-selected="true"], .seg button[aria-pressed="true"]{ background:var(--card); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.12); }
 
-.seg{ display:inline-flex; padding:3px; border-radius:999px; background:var(--panel); border:1px solid var(--line); margin:1rem 0 1.25rem; }
-.seg button{ font:inherit; font-weight:600; font-size:.9375rem; border:0; background:transparent; color:var(--muted); padding:.45rem 1.15rem; border-radius:999px; cursor:pointer; }
-.seg button[aria-selected="true"]{ background:var(--field); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.1); }
-
-.picker{ display:flex; align-items:center; gap:1rem; }
-input[type=color]{ -webkit-appearance:none; appearance:none; width:56px; height:56px; border:1px solid var(--line); border-radius:50%; padding:0; background:none; cursor:pointer; flex:none; }
+/* Color pane */
+.color-grid{ display:grid; grid-template-columns:minmax(260px, 380px) minmax(0,1fr); gap:clamp(14px, 2vw, 22px); align-items:start; }
+.wheel-card{ display:flex; flex-direction:column; align-items:center; gap:clamp(10px, 1.8vh, 16px); }
+.wheel-box{ position:relative; width:min(100%, 44vh, 330px); aspect-ratio:1; touch-action:none; cursor:crosshair; border-radius:50%; }
+.wheel-box canvas{ width:100%; height:100%; display:block; border-radius:50%; box-shadow:0 0 0 1px var(--line), 0 10px 30px -10px rgba(0,0,0,.35); }
+.wheel-mark{ position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.45); background:var(--c); pointer-events:none; }
+.white-box{ width:min(100%, 330px); display:flex; flex-direction:column; gap:12px; align-items:stretch; }
+.white-preview{ width:min(100%, 30vh, 210px); aspect-ratio:1; border-radius:50%; align-self:center; background:radial-gradient(circle at 50% 40%, #fff, var(--c) 70%); box-shadow:0 0 0 1px var(--line), 0 0 50px -6px var(--c); }
+.chip-row{ display:flex; flex-wrap:wrap; gap:.35rem; }
+.chip{ border:1px solid var(--line); background:var(--card); border-radius:999px; padding:.3rem .7rem; font-size:.8125rem; font-weight:600; color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; gap:.35rem; }
+.chip:hover{ color:var(--ink); border-color:var(--muted); }
+.chip[aria-pressed="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.chip i{ width:12px; height:12px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px rgba(0,0,0,.15); }
+.hex-row{ display:flex; align-items:center; gap:.5rem; width:min(100%, 330px); }
+.hex-row input[type=text]{ flex:1; min-width:0; }
+input[type=text], input[type=time], input[type=number], select{ font:inherit; font-size:.875rem; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:var(--r-s); padding:.45rem .6rem; min-height:38px; }
+input[type=color]{ -webkit-appearance:none; appearance:none; width:38px; height:38px; border:1px solid var(--line); border-radius:50%; padding:0; background:none; cursor:pointer; flex:none; }
 input[type=color]::-webkit-color-swatch-wrapper{ padding:0; }
 input[type=color]::-webkit-color-swatch{ border:0; border-radius:50%; }
 input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
-.hex{ font-weight:500; font-variant-numeric:tabular-nums; }
 
-.swatches{ display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:.75rem; }
-.swatch-wrap{ position:relative; }
-.swatch{ font:inherit; width:100%; background:none; border:0; color:var(--ink); display:flex; flex-direction:column; align-items:center; gap:.45rem; padding:.4rem .25rem; border-radius:var(--r-s); cursor:pointer; font-size:.8125rem; text-align:center; line-height:1.25; }
-.swatch .dot{ width:44px; height:44px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--line), 0 6px 16px -6px var(--c); transition:transform .15s ease; }
-.swatch:hover .dot{ transform:scale(1.07); }
-.remove{ position:absolute; top:0; right:4px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--field); color:var(--muted); font:inherit; font-size:.8rem; line-height:1; cursor:pointer; display:grid; place-items:center; padding:0; }
-.remove:hover{ color:var(--danger); border-color:var(--danger); }
-.fav-head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1.75rem 0 .75rem; }
-.fav-head h3{ margin:0; }
-.empty{ color:var(--muted); font-size:.9375rem; margin:.25rem 0 0; }
+.side{ display:flex; flex-direction:column; gap:clamp(10px, 1.8vh, 16px); min-width:0; }
+.palette{ display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:clamp(5px, .8vw, 9px); }
+.dot{ width:100%; aspect-ratio:1; border-radius:50%; border:0; padding:0; cursor:pointer; background:var(--c); box-shadow:0 0 0 1px rgba(0,0,0,.08); transition:transform .12s ease; position:relative; }
+.dot:hover{ transform:scale(1.12); }
+.dot[aria-pressed="true"]{ box-shadow:0 0 0 2px var(--card), 0 0 0 4px var(--ink); }
+.dots{ display:grid; grid-template-columns:repeat(auto-fill, minmax(32px, 1fr)); gap:8px; }
+.dots .dot{ max-width:40px; }
+.fav{ position:relative; }
+.fav .x{ position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--muted); font-size:.7rem; line-height:1; display:none; place-items:center; cursor:pointer; padding:0; }
+.fav:hover .x, .fav:focus-within .x{ display:grid; }
+@media (hover:none){ .fav .x{ display:grid; } }
+.empty{ color:var(--muted); font-size:.8125rem; margin:0; }
+
+/* Scene and effect cards */
+.cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:clamp(8px, 1.2vw, 12px); }
+.scard{ text-align:left; border:1px solid var(--line); background:var(--card); border-radius:var(--r-m); padding:10px; cursor:pointer; display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow); transition:transform .12s ease, border-color .12s ease; min-width:0; }
+.scard:hover{ transform:translateY(-2px); border-color:var(--muted); }
+.scard[aria-pressed="true"]{ border-color:var(--ink); box-shadow:0 0 0 1px var(--ink), var(--shadow); }
+.sw{ height:clamp(36px, 6.5vh, 64px); border-radius:10px; background:var(--g); background-size:200% 200%; position:relative; overflow:hidden; }
+.scard[aria-pressed="true"] .sw.anim, .scard:hover .sw.anim{ animation:drift 3s linear infinite; }
+@keyframes drift{ 0%{ background-position:0% 50%; } 100%{ background-position:200% 50%; } }
+.scard b{ font-weight:600; font-size:.875rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.scard small{ color:var(--muted); font-size:.75rem; display:flex; align-items:center; gap:.3rem; white-space:nowrap; min-width:0; }
+.scard small span:last-child{ overflow:hidden; text-overflow:ellipsis; }
+.scard small .tag{ flex:none; }
+.tag{ font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.05rem .35rem; border-radius:4px; background:var(--soft); color:var(--muted); }
+.pane-top{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:clamp(10px, 1.8vh, 16px); }
+.fx-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:.75rem 1.25rem; }
+.fx-bar label{ display:flex; align-items:center; gap:.5rem; font-size:.875rem; color:var(--muted); }
+.fx-bar input[type=range]{ width:140px; }
+
+/* Timers */
+.two{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:clamp(12px, 1.6vw, 20px); align-items:start; }
+.big-time{ font-size:clamp(2.4rem, 7.5vh, 4rem); font-weight:500; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1; margin:.4rem 0 .8rem; }
+.opts{ display:flex; flex-wrap:wrap; gap:.5rem .6rem; align-items:center; font-size:.875rem; margin:.7rem 0 0; }
+.check{ display:flex; gap:.55rem; align-items:flex-start; font-size:.875rem; cursor:pointer; margin-top:.7rem; }
+.check input{ margin:.2rem 0 0; accent-color:var(--ink); width:1rem; height:1rem; flex:none; }
+.row-btns{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem; }
+.chip-row input[type=number]{ width:5rem; min-height:32px; padding:.2rem .5rem; }
 
 /* Schedule */
-.sched-list{ list-style:none; padding:0; margin:0 0 1.25rem; }
-.sched-item{ display:flex; flex-wrap:wrap; align-items:center; gap:.75rem 1rem; padding:.9rem 0; border-bottom:1px solid var(--line); }
-.sched-item:first-child{ border-top:1px solid var(--line); }
-.sched-item .dot{ width:28px; height:28px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--line); flex:none; }
-.sched-item .dot.off{ background:transparent; border:2px dashed var(--muted); box-shadow:none; }
-.sched-text{ flex:1 1 180px; min-width:0; }
-.sched-time{ font-size:1.125rem; font-weight:600; font-variant-numeric:tabular-nums; }
-.sched-desc{ color:var(--muted); font-size:.875rem; }
-.sched-item[data-enabled="false"] .sched-text, .sched-item[data-enabled="false"] .dot{ opacity:.45; }
-.sched-actions{ display:flex; align-items:center; gap:.5rem; }
-
-.switch{ -webkit-appearance:none; appearance:none; width:40px; height:24px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; margin:0; transition:background .2s ease; flex:none; }
-.switch::after{ content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:var(--field); box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform .2s ease; }
+.sched-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(280px, 1fr); gap:clamp(12px, 1.6vw, 20px); align-items:start; }
+.sched-list{ list-style:none; padding:0; margin:0; }
+.sched-item{ display:flex; align-items:center; gap:.75rem; padding:.6rem 0; border-bottom:1px solid var(--line); }
+.sched-item:last-child{ border-bottom:0; }
+.sched-item .sdot{ width:26px; height:26px; border-radius:50%; background:var(--c); box-shadow:0 0 0 1px var(--line); flex:none; }
+.sched-item .sdot.off{ background:transparent; border:2px dashed var(--muted); box-shadow:none; }
+.sched-text{ flex:1; min-width:0; }
+.sched-time{ font-weight:600; font-variant-numeric:tabular-nums; }
+.sched-desc{ color:var(--muted); font-size:.8125rem; }
+.sched-item[data-enabled="false"] .sched-text, .sched-item[data-enabled="false"] .sdot{ opacity:.45; }
+.sched-actions{ display:flex; align-items:center; gap:.35rem; }
+.switch{ -webkit-appearance:none; appearance:none; width:38px; height:22px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; margin:0; transition:background .2s ease; flex:none; }
+.switch::after{ content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transition:transform .2s ease; }
 .switch:checked{ background:var(--ink); }
 .switch:checked::after{ transform:translateX(16px); }
-
-.sched-add{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-m); padding:1.25rem; display:grid; gap:1.1rem; }
-.sched-add h3{ margin:0; }
-.row{ display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; }
-.lbl{ display:flex; flex-direction:column; gap:.35rem; font-size:.875rem; color:var(--muted); }
-.lbl.grow{ flex:1 1 200px; }
-input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; color:var(--ink); background:var(--field); border:1px solid var(--line); border-radius:var(--r-s); padding:.5rem .65rem; min-height:42px; }
-.lbl input[type=color]{ width:42px; height:42px; }
-.days{ display:flex; flex-wrap:wrap; gap:.4rem; }
+.form{ display:grid; gap:.8rem; }
+.row{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end; }
+.lbl{ display:flex; flex-direction:column; gap:.25rem; font-size:.8125rem; color:var(--muted); }
+.days{ display:flex; flex-wrap:wrap; gap:.3rem; }
 .day{ position:relative; }
 .day input{ position:absolute; opacity:0; width:1px; height:1px; }
-.day span{ display:inline-grid; place-items:center; min-width:2.75rem; height:2.25rem; padding:0 .55rem; border-radius:999px; border:1px solid var(--line); font-size:.875rem; font-weight:600; cursor:pointer; color:var(--muted); background:var(--field); }
-.day input:checked + span{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
+.day span{ display:inline-grid; place-items:center; min-width:2.4rem; height:2rem; padding:0 .45rem; border-radius:999px; border:1px solid var(--line); font-size:.8125rem; font-weight:600; cursor:pointer; color:var(--muted); background:var(--card); }
+.day input:checked + span{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
 .day input:focus-visible + span{ outline:2px solid var(--ink); outline-offset:2px; }
-.error{ color:var(--danger); font-size:.875rem; margin:0; }
-.check{ display:flex; gap:.6rem; align-items:flex-start; font-size:.9375rem; margin-top:1.25rem; cursor:pointer; max-width:62ch; }
-.check input{ margin:.25rem 0 0; accent-color:var(--ink); width:1.05rem; height:1.05rem; flex:none; }
+.error{ color:var(--danger); font-size:.8125rem; margin:0; }
 
-/* Timer */
-.timer-display{ font-size:clamp(3rem, 9vw, 4.5rem); font-weight:500; letter-spacing:-.03em; font-variant-numeric:tabular-nums; line-height:1; margin:1rem 0 1.25rem; }
-.chips{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:1.25rem; }
-.chip{ font:inherit; font-size:.875rem; font-weight:600; min-width:3.25rem; height:2.25rem; padding:0 .8rem; border-radius:999px; border:1px solid var(--line); background:var(--field); color:var(--muted); cursor:pointer; }
-.chip[aria-pressed="true"]{ background:var(--ink); color:var(--wall); border-color:var(--ink); }
-.chips input[type=number]{ width:5.5rem; min-height:2.25rem; padding:.25rem .6rem; }
-.timer-opts{ display:flex; flex-wrap:wrap; gap:.6rem .75rem; align-items:center; font-size:.9375rem; margin-bottom:.25rem; }
-.timer-opts input[type=color]{ width:34px; height:34px; }
-.timer-row{ display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; margin-top:1.5rem; }
+/* Settings */
+.set-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:clamp(12px, 1.6vw, 18px); align-items:start; }
+.set-row{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.45rem 0; font-size:.875rem; }
+.set-row + .set-row{ border-top:1px solid var(--line); }
+.keys{ display:grid; grid-template-columns:auto 1fr; gap:.35rem .8rem; font-size:.8125rem; margin:0; }
+.keys dt{ font-weight:600; }
+.keys dd{ margin:0; color:var(--muted); }
+kbd{ font:inherit; font-size:.75rem; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:0 .35rem; background:var(--surface); }
+details.tips summary{ cursor:pointer; font-weight:600; font-size:.875rem; }
+details.tips ul{ padding-left:1.1rem; margin:.5rem 0 0; color:var(--muted); font-size:.8125rem; }
+details.tips li{ margin-bottom:.35rem; }
 
-/* Activity */
-.log{ list-style:none; padding:0; margin:.75rem 0 0; font-size:.875rem; color:var(--muted); max-height:240px; overflow:auto; }
-.log li{ padding:.4rem 0; border-bottom:1px solid var(--line); display:flex; gap:.85rem; }
-.log time{ font-variant-numeric:tabular-nums; flex:none; min-width:4.5rem; }
+/* Dialogs */
+dialog{ border:1px solid var(--line); border-radius:var(--r-l); background:var(--card); color:var(--ink); padding:0; width:min(580px, calc(100vw - 32px)); max-height:calc(100dvh - 48px); box-shadow:0 24px 70px rgba(0,0,0,.35); }
+dialog::backdrop{ background:rgba(10,12,18,.5); }
+.dlg{ padding:20px 22px; display:flex; flex-direction:column; gap:12px; max-height:calc(100dvh - 50px); overflow:auto; }
+.dlg-head{ display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+.dlg ol{ margin:0; padding-left:1.2rem; font-size:.875rem; }
+.dlg ol li{ margin-bottom:.45rem; }
+.dlg p{ margin:0; font-size:.875rem; }
+.diag{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); padding:.8rem; margin:0; font:.75rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; word-break:break-word; max-height:50vh; overflow:auto; }
+.log{ list-style:none; padding:0; margin:0; font-size:.8125rem; color:var(--muted); max-height:55vh; overflow:auto; }
+.log li{ padding:.35rem 0; border-bottom:1px solid var(--line); display:flex; gap:.75rem; }
+.log time{ font-variant-numeric:tabular-nums; flex:none; min-width:4rem; }
 .log li.err{ color:var(--danger); }
 .log li.ok{ color:var(--ok); }
+.install-steps{ font-size:.875rem; color:var(--muted); }
 
-/* Diagnostics */
-.diag{ background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:1rem; margin:1.25rem 0 0; font:.8125rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; word-break:break-word; max-height:460px; overflow:auto; color:var(--ink); }
-.diag-q{ display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-top:1rem; font-size:.9375rem; }
+.toast{ position:fixed; left:50%; bottom:24px; z-index:60; transform:translate(-50%, 16px); opacity:0; background:var(--ink); color:var(--bg); padding:.55rem 1rem; border-radius:999px; font-size:.875rem; pointer-events:none; transition:opacity .2s ease, transform .2s ease; max-width:calc(100vw - 32px); text-align:center; }
+.toast.show{ opacity:1; transform:translate(-50%, 0); }
+.toast.err{ background:var(--danger); color:#fff; }
 
-@media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+/* Medium screens */
+@media (max-width:1180px){
+  .color-grid{ grid-template-columns:minmax(240px, 320px) minmax(0,1fr); }
+  .tab span{ display:none; }
+  .tab{ padding:.5rem .7rem; }
+}
+/* Phones and narrow windows: compact lamp bar on top, tabs at the bottom */
+@media (max-width:860px){
+  .app{ grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); gap:10px; padding:calc(var(--tb) + 12px) 14px 0; }
+  .lamp{ display:grid; grid-template-columns:72px minmax(0,1fr); gap:6px 14px; align-items:center; overflow:visible; }
+  .brand{ grid-column:1 / -1; align-items:center; }
+  .brand h1{ font-size:1.5rem; }
+  .status{ margin-top:0; }
+  .orb-wrap{ grid-row:span 2; padding:0; }
+  .orb{ width:72px; }
+  .orb-hint, .bri-chips{ display:none; }
+  .now{ grid-column:1 / -1; padding:.45rem .6rem; }
+  .now-dot{ width:26px; height:26px; }
+  .conn, #unsupported{ grid-column:1 / -1; }
+  .conn{ flex-direction:row; flex-wrap:wrap; justify-content:center; }
+  .main{ min-height:0; }
+  .tabs{ order:2; align-self:stretch; border-radius:16px 16px 0 0; justify-content:space-around; margin:0 -14px; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); border-bottom:0; }
+  .tab{ flex-direction:column; gap:2px; font-size:.6875rem; padding:.35rem .4rem; border-radius:12px; }
+  .tab span{ display:block; }
+  .panes{ order:1; margin:0 0 10px; }
+  .color-grid, .two, .sched-grid{ grid-template-columns:1fr; height:auto; }
+  .palette{ grid-template-columns:repeat(9, minmax(0,1fr)); }
+  .cards{ grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); }
+  .scard{ padding:8px; gap:6px; }
+  .scard small .tag + *{ display:none; }
+  .toast{ bottom:90px; }
+}
+@media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; } }
 </style>
 </head>
 <body data-on="true">
+<div class="titlebar" aria-hidden="true">Iris</div>
 <div class="halo" aria-hidden="true"></div>
 
 <div class="app">
-  <aside class="lamp-col">
+  <aside class="lamp" aria-label="Lamp">
     <header class="brand">
-      <h1>Iris</h1>
+      <div>
+        <h1>Iris</h1>
+        <p class="version"><span id="version"></span><span id="devBadge" class="dev-badge" hidden>DEV</span></p>
+      </div>
       <span id="status" class="status" data-state="off" role="status">Not connected</span>
     </header>
-    <p class="version" id="version"></p>
 
-    <button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button>
+    <div class="orb-wrap"><button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button></div>
     <p id="orbHint" class="orb-hint">Click the lamp to turn it off</p>
 
-    <label class="field">
-      <span class="field-row"><span>Brightness</span><output id="briOut">80%</output></span>
-      <input type="range" id="bri" min="1" max="254" value="200">
-    </label>
-
-    <div class="conn">
-      <button id="connectBtn" class="btn primary">Connect your Iris</button>
-      <button id="allBtn" class="btn link">Light not listed? Show all Bluetooth devices</button>
-      <button id="disconnectBtn" class="btn" hidden>Disconnect</button>
-    </div>
-    <div id="pairHelp" class="notice pair" role="alert" hidden>
-      <strong>Pair the light once, then it works</strong>
-      <p>The light accepted the connection but refuses every command, because it doesn’t trust this <span id="pairDevice">computer</span> yet. Hue lights only accept a new device while they are discoverable.</p>
-      <ol id="pairSteps"></ol>
-      <div class="pair-actions">
-        <button id="pairRetry" class="btn primary small">I did it, connect again</button>
-        <button id="pairHide" class="btn small">Hide</button>
+    <div>
+      <div class="field-row"><span>Brightness</span><output id="briOut">100%</output></div>
+      <input type="range" id="bri" min="1" max="254" value="254" aria-label="Brightness">
+      <div class="bri-chips" id="briChips">
+        <button type="button" data-p="10">10%</button><button type="button" data-p="25">25%</button><button type="button" data-p="50">50%</button><button type="button" data-p="75">75%</button><button type="button" data-p="100">100%</button>
       </div>
+    </div>
+
+    <div class="now" id="now">
+      <span class="now-dot" id="nowDot"></span>
+      <div class="now-text"><span class="now-k" id="nowK">Now</span><span id="nowLabel">Color</span><span class="now-extra" id="nowExtra" hidden></span></div>
+      <button id="nowStop" class="btn small" hidden>Stop</button>
+    </div>
+
+    <div class="conn" id="connBox">
+      <button id="connectBtn" class="btn primary wide">Connect your Iris</button>
+      <button id="allBtn" class="btn link">Light not listed? Show all Bluetooth devices</button>
     </div>
     <p id="unsupported" class="notice" hidden>This browser can’t use Bluetooth. Open this page in Chrome or Edge on a computer with Bluetooth turned on.</p>
-
-    <details class="tips">
-      <summary>Trouble connecting?</summary>
-      <ul>
-        <li>Use Chrome or Edge on your computer, with Bluetooth turned on.</li>
-        <li>Close the Hue app on your phone. The light may accept only one connection at a time.</li>
-        <li>Before connecting from a new computer or phone, make the light discoverable from the Hue app (Settings → Voice assistants → Amazon Alexa or Google Home → Make discoverable). The light only accepts a new device for a few minutes after that.</li>
-        <li>If it connects but nothing changes, run the test in Diagnostics. It tells you whether the light refuses the commands and how to fix it on your system.</li>
-        <li>On Windows, the light must be paired in Settings → Bluetooth &amp; devices → Add device while it is discoverable, before you connect here.</li>
-        <li>Schedules and the timer run only while this page is open and your computer is awake.</li>
-      </ul>
-    </details>
   </aside>
 
-  <main class="panels">
-    <section aria-labelledby="colorTitle">
-      <h2 id="colorTitle">Color</h2>
-      <div class="seg" role="tablist" aria-label="Light mode">
-        <button role="tab" data-mode="color" aria-selected="true" aria-controls="colorPane">Color</button>
-        <button role="tab" data-mode="white" aria-selected="false" aria-controls="whitePane">White</button>
-      </div>
+  <main class="main">
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-tab="color" aria-controls="pane-color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.7-.8 1.7-1.7 0-1-.8-1.4-.8-2.3 0-1 .8-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.1" fill="currentColor"/><circle cx="10.5" cy="7" r="1.1" fill="currentColor"/><circle cx="15.5" cy="7.5" r="1.1" fill="currentColor"/></svg><span>Color</span></button>
+      <button class="tab" role="tab" data-tab="scenes" aria-controls="pane-scenes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.7 5.5 6 .9-4.35 4.25 1 6L12 16.3l-5.35 2.85 1-6L3.3 8.9l6-.9z"/></svg><span>Scenes</span></button>
+      <button class="tab" role="tab" data-tab="effects" aria-controls="pane-effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c2.2-4.5 4.3-4.5 6.4 0s4.3 4.5 6.4 0 4.3-4.5 6.2 0"/></svg><span>Effects</span></button>
+      <button class="tab" role="tab" data-tab="timers" aria-controls="pane-timers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span>Timers</span></button>
+      <button class="tab" role="tab" data-tab="schedule" aria-controls="pane-schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Schedule</span></button>
+      <button class="tab" role="tab" data-tab="settings" aria-controls="pane-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
+    </nav>
 
-      <div id="colorPane" class="picker" role="tabpanel">
-        <input type="color" id="colorPick" value="#6c8cff" aria-label="Pick a color">
-        <span class="hex" id="hexOut">#6C8CFF</span>
-      </div>
+    <div class="panes">
+      <!-- COLOR -->
+      <section class="pane" id="pane-color" role="tabpanel" aria-label="Color">
+        <div class="color-grid">
+          <div class="card wheel-card">
+            <div class="seg" role="tablist" aria-label="Light mode" id="modeSeg">
+              <button role="tab" data-mode="color" aria-selected="true">Color</button>
+              <button role="tab" data-mode="white" aria-selected="false">White</button>
+            </div>
+            <div class="wheel-box" id="wheelBox" aria-label="Color wheel. Drag to pick a color." role="img">
+              <canvas id="wheel"></canvas>
+              <span class="wheel-mark" id="wheelMark"></span>
+            </div>
+            <div class="white-box" id="whiteBox" hidden>
+              <div class="white-preview" id="whitePreview"></div>
+              <div>
+                <div class="field-row"><span>Warm to cool</span><output id="kelvinOut">4000K</output></div>
+                <input type="range" id="kelvin" class="k-track" min="2000" max="6500" step="50" value="4000" aria-label="White temperature">
+              </div>
+              <div class="chip-row" id="whiteChips"></div>
+            </div>
+            <div class="hex-row" id="hexRow">
+              <input type="color" id="colorPick" value="#6c8cff" aria-label="More colors">
+              <input type="text" id="hexIn" maxlength="7" spellcheck="false" aria-label="Color code" placeholder="#RRGGBB">
+              <button class="btn small" id="hexGo">Apply</button>
+            </div>
+          </div>
 
-      <div id="whitePane" role="tabpanel" hidden>
-        <label class="field" style="max-width:420px">
-          <span class="field-row"><span>Warm to cool</span><output id="kelvinOut">4000K</output></span>
-          <input type="range" id="kelvin" min="2000" max="6500" step="100" value="4000">
-        </label>
-      </div>
-
-      <h3>Presets</h3>
-      <div class="swatches" id="presets"></div>
-
-      <div class="fav-head">
-        <h3>Favorites</h3>
-        <button id="saveFav" class="btn small">Save current</button>
-      </div>
-      <div class="swatches" id="favs"></div>
-      <p class="empty" id="favEmpty">Save a color you like and it will show up here.</p>
-    </section>
-
-    <section aria-labelledby="schedTitle">
-      <h2 id="schedTitle">Schedule</h2>
-      <p class="sub">Set the light to change on its own during the day. Changes happen while this page stays open on your computer.</p>
-
-      <ol id="schedList" class="sched-list"></ol>
-      <p class="empty" id="schedEmpty" style="margin-bottom:1.25rem">Nothing scheduled yet. Try a focus white at 9:00 and a warm white at 15:30.</p>
-
-      <div class="sched-add">
-        <h3>Add a change</h3>
-        <div class="row">
-          <label class="lbl">Time
-            <input type="time" id="addTime" required>
-          </label>
-          <label class="lbl">Change to
-            <select id="addAction">
-              <option value="white">White</option>
-              <option value="color">Color</option>
-              <option value="off">Turn off</option>
-            </select>
-          </label>
-          <label class="lbl" id="addColorWrap" hidden>Color
-            <input type="color" id="addColor" value="#ff6a2b">
-          </label>
+          <div class="side">
+            <div class="card">
+              <div class="card-head"><h2>Palette</h2><span class="sub" style="margin:0">Always at full brightness</span></div>
+              <div class="palette" id="palette"></div>
+            </div>
+            <div class="card">
+              <h3>Recent</h3>
+              <div class="dots" id="recents"></div>
+              <p class="empty" id="recentEmpty">Colors you pick show up here.</p>
+            </div>
+            <div class="card">
+              <div class="card-head" style="margin-bottom:.5rem"><h3 style="margin:0">Favorites</h3><button id="saveFav" class="btn small">Save current</button></div>
+              <div class="dots" id="favs"></div>
+              <p class="empty" id="favEmpty">Save a color or white you like and it stays here.</p>
+            </div>
+          </div>
         </div>
-        <label class="lbl" id="addKelvinWrap" style="max-width:420px">
-          <span class="field-row" style="margin:0"><span>Warm to cool</span><output id="addKelvinOut">2700K</output></span>
-          <input type="range" id="addKelvin" min="2000" max="6500" step="100" value="2700">
-        </label>
-        <label class="lbl" id="addBriWrap" style="max-width:420px">
-          <span class="field-row" style="margin:0"><span>Brightness</span><output id="addBriOut">71%</output></span>
-          <input type="range" id="addBri" min="1" max="254" value="180">
-        </label>
-        <div>
-          <span class="lbl" style="margin-bottom:.4rem">Days</span>
-          <div class="days" id="addDays"></div>
+      </section>
+
+      <!-- SCENES -->
+      <section class="pane" id="pane-scenes" role="tabpanel" aria-label="Scenes" hidden>
+        <div class="pane-top">
+          <div class="seg" id="sceneCats" role="tablist" aria-label="Scene category"></div>
+          <span class="sub" style="margin:0">Scenes marked Animated keep changing on their own.</span>
         </div>
-        <p class="error" id="addError" hidden></p>
-        <div><button id="addBtn" class="btn primary">Add to schedule</button></div>
-      </div>
+        <div class="cards" id="sceneGrid"></div>
+      </section>
 
-      <label class="check"><input type="checkbox" id="catchUp" checked> When I connect, set the light to the latest scheduled change from today</label>
-    </section>
+      <!-- EFFECTS -->
+      <section class="pane" id="pane-effects" role="tabpanel" aria-label="Effects" hidden>
+        <div class="pane-top">
+          <div class="fx-bar">
+            <label>Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
+            <label>Sunrise and sunset last
+              <select id="fxDur"><option value="1">1 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option></select>
+            </label>
+          </div>
+          <button id="fxStop" class="btn" disabled>Stop effect</button>
+        </div>
+        <div class="cards" id="fxGrid"></div>
+      </section>
 
-    <section aria-labelledby="timerTitle">
-      <h2 id="timerTitle">Focus timer</h2>
-      <p class="sub">The light flashes when time’s up, so you notice without a sound.</p>
-      <div class="timer-display" id="timerDisplay" aria-live="off">25:00</div>
-      <div class="chips" id="timerChips">
-        <button class="chip" data-min="15" aria-pressed="false">15</button>
-        <button class="chip" data-min="25" aria-pressed="true">25</button>
-        <button class="chip" data-min="50" aria-pressed="false">50</button>
-        <input type="number" id="timerCustom" min="1" max="240" placeholder="Min" aria-label="Custom minutes">
-      </div>
-      <div class="timer-opts">
-        <span>When time’s up, flash</span>
-        <input type="color" id="alertColor" value="#ff2a2a" aria-label="Flash color">
-        <span>then</span>
-        <select id="afterAlert" aria-label="After flashing">
-          <option value="restore">go back to the previous light</option>
-          <option value="stay">stay on that color</option>
-        </select>
-      </div>
-      <label class="check"><input type="checkbox" id="beep"> Also play a short sound</label>
-      <div class="timer-row">
-        <button id="timerBtn" class="btn primary">Start timer</button>
-        <button id="testFlash" class="btn">Test the flash</button>
-      </div>
-    </section>
+      <!-- TIMERS -->
+      <section class="pane" id="pane-timers" role="tabpanel" aria-label="Timers" hidden>
+        <div class="two">
+          <div class="card">
+            <h2>Focus timer</h2>
+            <p class="sub">The light flashes when time’s up, so you notice without a sound.</p>
+            <div class="big-time" id="timerDisplay">25:00</div>
+            <div class="chip-row" id="timerChips">
+              <button class="chip" data-min="5" aria-pressed="false">5</button>
+              <button class="chip" data-min="15" aria-pressed="false">15</button>
+              <button class="chip" data-min="25" aria-pressed="true">25</button>
+              <button class="chip" data-min="50" aria-pressed="false">50</button>
+              <input type="number" id="timerCustom" min="1" max="240" placeholder="Min" aria-label="Custom minutes">
+            </div>
+            <div class="opts">
+              <span>Flash</span>
+              <input type="color" id="alertColor" value="#ff2a2a" aria-label="Flash color">
+              <span>then</span>
+              <select id="afterAlert" aria-label="After flashing">
+                <option value="restore">go back to the previous light</option>
+                <option value="stay">stay on that color</option>
+              </select>
+            </div>
+            <label class="check"><input type="checkbox" id="beep"> Also play a short sound</label>
+            <div class="row-btns">
+              <button id="timerBtn" class="btn primary">Start timer</button>
+              <button id="testFlash" class="btn">Test the flash</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Sleep timer</h2>
+            <p class="sub">Turns the light off for you after a while.</p>
+            <div class="big-time" id="sleepDisplay">30:00</div>
+            <div class="chip-row" id="sleepChips">
+              <button class="chip" data-min="15" aria-pressed="false">15</button>
+              <button class="chip" data-min="30" aria-pressed="true">30</button>
+              <button class="chip" data-min="45" aria-pressed="false">45</button>
+              <button class="chip" data-min="60" aria-pressed="false">60</button>
+              <button class="chip" data-min="90" aria-pressed="false">90</button>
+            </div>
+            <label class="check"><input type="checkbox" id="sleepFade" checked> Fade out slowly during the last 5 minutes</label>
+            <div class="row-btns">
+              <button id="sleepBtn" class="btn primary">Start sleep timer</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section aria-labelledby="diagTitle">
-      <h2 id="diagTitle">Diagnostics</h2>
-      <p class="sub">Connected but the light doesn’t react? Connect first, keep the light in view, then run this test. It tries several ways to switch the light off and on, and writes down what happened.</p>
-      <div class="timer-row" style="margin-top:0">
-        <button id="diagBtn" class="btn primary">Run the test</button>
-        <button id="diagCopy" class="btn" hidden>Copy the report</button>
-      </div>
-      <pre id="diagOut" class="diag" hidden></pre>
-    </section>
+      <!-- SCHEDULE -->
+      <section class="pane" id="pane-schedule" role="tabpanel" aria-label="Schedule" hidden>
+        <div class="sched-grid">
+          <div class="card">
+            <h2>Your schedule</h2>
+            <p class="sub">Changes happen while Iris stays open on your computer.</p>
+            <ol id="schedList" class="sched-list" style="margin-top:.6rem"></ol>
+            <p class="empty" id="schedEmpty" style="margin-top:.6rem">Nothing scheduled yet. Try a sunrise at 7:00 on weekdays, or Christmas lights at 17:00.</p>
+            <label class="check"><input type="checkbox" id="catchUp" checked> When I connect, apply the latest change from today</label>
+          </div>
+          <div class="card form">
+            <h2>Add a change</h2>
+            <div class="row">
+              <label class="lbl">Time <input type="time" id="addTime" required></label>
+              <label class="lbl">Change to
+                <select id="addAction">
+                  <option value="white">White</option>
+                  <option value="color">Color</option>
+                  <option value="fx">Effect</option>
+                  <option value="off">Turn off</option>
+                </select>
+              </label>
+              <label class="lbl" id="addColorWrap" hidden>Color <input type="color" id="addColor" value="#ff1a1a"></label>
+              <label class="lbl" id="addFxWrap" hidden>Effect <select id="addFx"></select></label>
+            </div>
+            <label class="lbl" id="addKelvinWrap">
+              <span class="field-row" style="margin:0"><span>Warm to cool</span><output id="addKelvinOut">2700K</output></span>
+              <input type="range" id="addKelvin" class="k-track" min="2000" max="6500" step="100" value="2700">
+            </label>
+            <label class="lbl" id="addBriWrap">
+              <span class="field-row" style="margin:0"><span>Brightness</span><output id="addBriOut">100%</output></span>
+              <input type="range" id="addBri" min="1" max="254" value="254">
+            </label>
+            <div>
+              <span class="lbl" style="margin-bottom:.3rem">Days</span>
+              <div class="days" id="addDays"></div>
+            </div>
+            <p class="error" id="addError" hidden></p>
+            <div><button id="addBtn" class="btn primary">Add to schedule</button></div>
+          </div>
+        </div>
+      </section>
 
-    <section aria-labelledby="logTitle">
-      <h2 id="logTitle">Activity</h2>
-      <ol class="log" id="log"></ol>
-    </section>
+      <!-- SETTINGS -->
+      <section class="pane" id="pane-settings" role="tabpanel" aria-label="Settings" hidden>
+        <div class="set-grid">
+          <div class="card">
+            <h2>Light</h2>
+            <div class="set-row"><span id="setLightName">No light connected</span></div>
+            <div class="row-btns" style="margin-top:.4rem">
+              <button id="setConnect" class="btn primary small">Connect</button>
+              <button id="setDisconnect" class="btn small" hidden>Disconnect</button>
+              <button id="setForget" class="btn small danger">Forget this light</button>
+            </div>
+            <label class="check"><input type="checkbox" id="fullBri" checked> Colors and scenes always use full brightness</label>
+          </div>
+
+          <div class="card">
+            <h2>App</h2>
+            <p class="sub">Install Iris as an app on this computer. It opens in its own window, with an icon in the Start menu and taskbar.</p>
+            <div class="row-btns">
+              <button id="installBtn" class="btn primary small">Install Iris</button>
+            </div>
+            <p class="install-steps" id="installInfo" style="margin:.6rem 0 0"></p>
+          </div>
+
+          <div class="card">
+            <h2>Appearance</h2>
+            <div class="set-row"><span>Theme</span>
+              <div class="seg" id="themeSeg"><button data-theme="auto">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+            </div>
+            <div class="set-row"><span>Glow the page in the lamp’s color</span><input type="checkbox" class="switch" id="haloSw" checked aria-label="Glow the page"></div>
+          </div>
+
+          <div class="card">
+            <h2>Keyboard</h2>
+            <dl class="keys" style="margin-top:.6rem">
+              <dt><kbd>Space</kbd></dt><dd>Turn the light on or off</dd>
+              <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Brighter or dimmer</dd>
+              <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch section</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
+            </dl>
+          </div>
+
+          <div class="card">
+            <h2>Help</h2>
+            <div class="row-btns" style="margin-top:.6rem">
+              <button id="openPair" class="btn small">Pairing steps</button>
+              <button id="openDiag" class="btn small">Diagnostics</button>
+              <button id="openLog" class="btn small">Activity</button>
+              <button id="openDev" class="btn small">DEV</button>
+            </div>
+            <details class="tips" style="margin-top:.8rem">
+              <summary>Trouble connecting?</summary>
+              <ul>
+                <li>Use Chrome or Edge, with Bluetooth turned on.</li>
+                <li>Close the Hue app on your phone. The light accepts one connection at a time.</li>
+                <li>A new computer must be paired once: open Pairing steps.</li>
+                <li>Schedules and timers run only while Iris is open and the computer is awake.</li>
+              </ul>
+            </details>
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
 </div>
+
+<!-- Pairing -->
+<dialog id="pairDlg" aria-labelledby="pairTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="pairTitle">Pair the light once, then it works</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <p>The light accepted the connection but refuses commands, because it doesn’t trust this <span id="pairDevice">computer</span> yet. Hue lights only accept a new device while they are discoverable.</p>
+    <ol id="pairSteps"></ol>
+    <div class="row-btns" style="margin-top:0">
+      <button id="pairRetry" class="btn primary">I did it, connect again</button>
+      <button class="btn" data-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Diagnostics -->
+<dialog id="diagDlg" aria-labelledby="diagTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="diagTitle">Diagnostics</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <p>Connect first and keep the light in view. The test tries several ways to switch it off and on, then explains what happened.</p>
+    <div class="row-btns" style="margin-top:0">
+      <button id="diagBtn" class="btn primary">Run the test</button>
+      <button id="diagCopy" class="btn" hidden>Copy the report</button>
+    </div>
+    <pre id="diagOut" class="diag" hidden></pre>
+  </div>
+</dialog>
+
+<!-- Activity -->
+<dialog id="logDlg" aria-labelledby="logTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="logTitle">Activity</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <ol class="log" id="log"></ol>
+  </div>
+</dialog>
+
+<!-- Developer -->
+<dialog id="devDlg" aria-labelledby="devTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="devTitle">Developer</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <div id="devLocked" class="row">
+      <label class="lbl" style="flex:1">Code <input type="text" id="devCode" autocomplete="off" spellcheck="false"></label>
+      <button id="devUnlock" class="btn primary">Unlock</button>
+    </div>
+    <p class="error" id="devErr" hidden>That code doesn’t work.</p>
+    <div id="devTools" hidden>
+      <div class="set-row"><span>Simulated light (works with no lamp or Bluetooth)</span><input type="checkbox" class="switch" id="simSw" aria-label="Simulated light"></div>
+      <div class="set-row"><span>Commands sent to the light</span><output id="devWrites">0</output></div>
+      <div class="set-row"><span>Commands per second</span><output id="devRate">0</output></div>
+      <div class="row-btns">
+        <button id="devDrop" class="btn small">Drop the connection</button>
+        <button id="devDemo" class="btn small">Play every effect</button>
+        <button id="devReset" class="btn small danger">Erase saved data</button>
+        <button id="devExit" class="btn small">Leave dev mode</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v1.3', date: 'Nov 5, 2026', note: 'pairing guide' };
-  document.getElementById('version').textContent = 'Version ' + VERSION.name + ' · ' + VERSION.date;
+  const VERSION = { name: 'v2.0', date: 'Nov 5, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -353,33 +629,39 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     ct:    '932c32bd-0004-47a2-835a-a8d455b859dd',
     xy:    '932c32bd-0005-47a2-835a-a8d455b859dd'
   };
+  const FULL = 254;
 
   const $ = id => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pct = b => Math.round(b / 254 * 100) + '%';
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
   // ---------- Storage ----------
   const store = {
     get(k, d) { try { const v = localStorage.getItem('iris:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem('iris:' + k, JSON.stringify(v)); } catch {} }
   };
-
-  const light = Object.assign({ on: true, bri: 200, mode: 'color', hex: '#6c8cff', kelvin: 4000 }, store.get('light', {}));
+  const light = Object.assign({ on: true, bri: FULL, mode: 'color', hex: '#6c8cff', kelvin: 4000, label: '' }, store.get('light', {}));
   let schedule = store.get('schedule', []);
   let favorites = store.get('favorites', []);
-  const settings = Object.assign({ catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25 }, store.get('settings', {}));
+  let recents = store.get('recents', []);
+  const prefs = Object.assign({
+    catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
+    sleepMin: 30, sleepFade: true, fullBri: true, theme: 'auto', halo: true,
+    fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
+  }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
   const saveSchedule = () => store.set('schedule', schedule);
   const saveFavs = () => store.set('favorites', favorites);
-  const saveSettings = () => store.set('settings', settings);
+  const savePrefs = () => store.set('settings', prefs);
 
   // ---------- Color math ----------
   const hexToRgb = hex => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
   const rgbToHex = (r, g, b) => '#' + [r, g, b].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
   const toLin = c => { c /= 255; return c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92; };
   const toGam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
-
   function hexToXY(hex) {
     const [r, g, b] = hexToRgb(hex).map(toLin);
     const X = r * 0.664511 + g * 0.154324 + b * 0.162028;
@@ -400,15 +682,8 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
   }
   function kelvinToHex(K) {
     const t = K / 100; let r, g, b;
-    if (t <= 66) {
-      r = 255;
-      g = 99.4708025861 * Math.log(t) - 161.1195681661;
-      b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
-    } else {
-      r = 329.698727446 * Math.pow(t - 60, -0.1332047592);
-      g = 288.1221695283 * Math.pow(t - 60, -0.0755148492);
-      b = 255;
-    }
+    if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661; b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+    else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); b = 255; }
     return rgbToHex(r, g, b);
   }
   function kelvinToXY(T) {
@@ -422,6 +697,18 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     else y = 3.0817580 * x ** 3 - 5.87338670 * x ** 2 + 3.75112997 * x - 0.37001483;
     return [x, y];
   }
+  function hsvToHex(h, s, v) {
+    const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+    return rgbToHex(f(5) * 255, f(3) * 255, f(1) * 255);
+  }
+  function hexToHsv(hex) {
+    const [r, g, b] = hexToRgb(hex).map(c => c / 255);
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let h = 0;
+    if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return [h, mx ? d / mx : 0, mx];
+  }
+  function mixHex(a, b, t) { const A = hexToRgb(a), B = hexToRgb(b); return rgbToHex(...A.map((v, i) => v + (B[i] - v) * t)); }
 
   // ---------- Byte encoders ----------
   const u8 = v => new Uint8Array([v]);
@@ -433,39 +720,46 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
   };
 
   // ---------- Elements ----------
-  const els = {
-    status: $('status'), orb: $('orb'), orbHint: $('orbHint'), bri: $('bri'), briOut: $('briOut'),
-    connectBtn: $('connectBtn'), allBtn: $('allBtn'), disconnectBtn: $('disconnectBtn'), unsupported: $('unsupported'),
-    tabs: document.querySelectorAll('.seg [role=tab]'), colorPane: $('colorPane'), whitePane: $('whitePane'),
-    colorPick: $('colorPick'), hexOut: $('hexOut'), kelvin: $('kelvin'), kelvinOut: $('kelvinOut'),
-    presets: $('presets'), favs: $('favs'), favEmpty: $('favEmpty'), saveFav: $('saveFav'),
-    schedList: $('schedList'), schedEmpty: $('schedEmpty'),
-    addTime: $('addTime'), addAction: $('addAction'), addColorWrap: $('addColorWrap'), addColor: $('addColor'),
-    addKelvinWrap: $('addKelvinWrap'), addKelvin: $('addKelvin'), addKelvinOut: $('addKelvinOut'),
-    addBriWrap: $('addBriWrap'), addBri: $('addBri'), addBriOut: $('addBriOut'),
-    addDays: $('addDays'), addError: $('addError'), addBtn: $('addBtn'), catchUp: $('catchUp'),
-    pairHelp: $('pairHelp'), pairSteps: $('pairSteps'), pairDevice: $('pairDevice'), pairRetry: $('pairRetry'), pairHide: $('pairHide'),
-    diagBtn: $('diagBtn'), diagCopy: $('diagCopy'), diagOut: $('diagOut'),
-    timerDisplay: $('timerDisplay'), timerChips: $('timerChips'), timerCustom: $('timerCustom'),
-    alertColor: $('alertColor'), afterAlert: $('afterAlert'), beep: $('beep'), timerBtn: $('timerBtn'), testFlash: $('testFlash'),
-    log: $('log')
-  };
+  const els = {};
+  document.querySelectorAll('[id]').forEach(n => { els[n.id] = n; });
+  els.tabs = document.querySelectorAll('.tab');
+  els.panes = document.querySelectorAll('.pane');
+  const root = document.documentElement.style;
 
-  // ---------- Activity log ----------
-  function log(msg, isErr = false, cls = '') {
+  // ---------- Toast and activity ----------
+  let toastTimer = null;
+  function toast(msg, isErr = false) {
+    els.toast.textContent = msg;
+    els.toast.classList.toggle('err', isErr);
+    els.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => els.toast.classList.remove('show'), isErr ? 5000 : 2600);
+  }
+  function log(msg, isErr = false, cls = '', show = false) {
     const li = document.createElement('li');
-    if (isErr) li.className = 'err'; else if (cls) li.className = cls;
+    li.className = isErr ? 'err' : cls;
     const t = document.createElement('time');
     t.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const s = document.createElement('span');
-    s.textContent = msg;
+    const s = document.createElement('span'); s.textContent = msg;
     li.append(t, s);
     els.log.prepend(li);
-    while (els.log.children.length > 40) els.log.lastChild.remove();
+    while (els.log.children.length > 80) els.log.lastChild.remove();
+    if (show || isErr) toast(msg, isErr);
+  }
+  const errText = e => (e && (e.name || 'Error')) + ': ' + (e && e.message ? e.message : String(e));
+
+  function osName() {
+    const ua = navigator.userAgent;
+    if (/Android/i.test(ua)) return 'Android';
+    if (/CrOS/.test(ua)) return 'ChromeOS';
+    if (/Windows/.test(ua)) return 'Windows';
+    if (/Mac OS X|Macintosh/.test(ua)) return 'Mac';
+    if (/Linux/.test(ua)) return 'Linux';
+    return 'Unknown';
   }
 
   // ---------- Pairing guide ----------
-  const DISCOVERABLE = 'On your phone, open the Hue app and make the light discoverable: Settings → Voice assistants → Amazon Alexa (or Google Home) → Make discoverable. The wording can differ slightly. The light stays discoverable for a few minutes, so do the next steps right away. Then fully close the Hue app.';
+  const DISCOVERABLE = 'On your phone, open the Hue app and make the light discoverable: Settings → Voice assistants → Amazon Alexa (or Google Home) → Make discoverable. The light stays discoverable for a few minutes, so do the next steps right away. Then fully close the Hue app.';
   function pairSteps(os) {
     if (os === 'Windows') return [
       DISCOVERABLE,
@@ -488,51 +782,88 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       'In a terminal, run bluetoothctl, then: scan on, wait for the light, then pair followed by its address, then trust followed by its address.',
       'Come back here and click “I did it, connect again”.'
     ];
-    return [
-      DISCOVERABLE,
-      'Pair the light in this device’s Bluetooth settings while it is discoverable.',
-      'Come back here and click “I did it, connect again”.'
-    ];
+    return [DISCOVERABLE, 'Pair the light in this device’s Bluetooth settings while it is discoverable.', 'Come back here and click “I did it, connect again”.'];
   }
   const EXTRA_STEPS = [
     'Still refused? Turn the lamp off at the wall for 10 seconds, turn it back on, and repeat from step 1.',
-    'Easiest alternative: Chrome on an Android phone usually pairs on its own. On iPhone, use the free Bluefy browser, since Safari has no Bluetooth for web pages.'
+    'Easiest alternative: Chrome on an Android phone usually pairs on its own. On iPhone, use the free Bluefy browser.'
   ];
   const isAuthError = e => !!e && (e.name === 'SecurityError' || /not authorized|authenticat|encrypt|insufficient/i.test(e.message || ''));
-  let pairHidden = false;
-  function showPairHelp() {
-    if (pairHidden) return;
+  let pairAuto = false, pairDismissed = false;
+  function fillPairSteps() {
     const os = osName();
     els.pairDevice.textContent = os === 'Android' ? 'phone' : 'computer';
     els.pairSteps.replaceChildren(...[...pairSteps(os), ...EXTRA_STEPS].map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
-    if (els.pairHelp.hidden) { els.pairHelp.hidden = false; els.pairHelp.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
   }
-  function hidePairHelp() { els.pairHelp.hidden = true; }
+  function showPairHelp() {
+    if (pairDismissed || els.pairDlg.open) return;
+    fillPairSteps(); pairAuto = true; openDialog(els.pairDlg);
+  }
+  function hidePairHelp() { if (pairAuto && els.pairDlg.open) els.pairDlg.close(); pairAuto = false; }
+
+  // ---------- Simulated light (dev mode) ----------
+  function makeSimDevice() {
+    const base = id => '932c32bd-' + id + '-47a2-835a-a8d455b859dd';
+    const vals = { '0002': [light.on ? 1 : 0], '0003': [light.bri], '0004': [0x6f, 0x01], '0005': Array.from(new Uint8Array(enc.xy(hexToXY(light.hex)))) };
+    const listeners = [];
+    const bytesOf = b => b instanceof ArrayBuffer ? new Uint8Array(b) : new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+    const write = id => async b => { await sleep(18); vals[id] = Array.from(bytesOf(b)); };
+    const ch = id => ({
+      uuid: base(id), properties: { read: true, write: true, writeWithoutResponse: true, notify: true },
+      readValue: async () => { await sleep(8); return new DataView(new Uint8Array(vals[id]).buffer); },
+      writeValueWithResponse: write(id), writeValueWithoutResponse: write(id), writeValue: write(id)
+    });
+    const chars = Object.keys(vals).map(ch);
+    const svc = {
+      uuid: SVC,
+      getCharacteristic: async u => { const c = chars.find(c => c.uuid === u); if (!c) { const e = new Error('No such control'); e.name = 'NotFoundError'; throw e; } return c; },
+      getCharacteristics: async () => chars
+    };
+    const dev = {
+      id: 'simulated', name: 'Simulated Iris',
+      addEventListener: (t, f) => listeners.push(f), removeEventListener() {},
+      gatt: {
+        connected: false,
+        async connect() { await sleep(250); this.connected = true; return this; },
+        disconnect() { if (!this.connected) return; this.connected = false; setTimeout(() => listeners.forEach(f => f({ target: dev })), 0); },
+        getPrimaryService: async () => svc, getPrimaryServices: async () => [svc]
+      }
+    };
+    return dev;
+  }
 
   // ---------- Connection ----------
   let device = null, chars = {}, ready = false, wantConnected = false, connecting = false;
-  let reconnectTimer = null, retry = 0, hintedOffline = false;
+  let reconnectTimer = null, retry = 0, hintedOffline = false, afterConnect = null;
 
   function setStatus(state) {
     els.status.dataset.state = state;
     const name = (device && device.name) || 'your light';
-    els.status.textContent = {
-      off: 'Not connected', busy: 'Connecting…', retry: 'Reconnecting…', on: 'Connected to ' + name
-    }[state];
+    els.status.textContent = { off: 'Not connected', busy: 'Connecting…', retry: 'Reconnecting…', on: name }[state];
+    els.status.title = state === 'on' ? 'Connected to ' + name : els.status.textContent;
     const connected = state === 'on' || state === 'busy' || state === 'retry';
-    els.connectBtn.hidden = connected;
-    els.allBtn.hidden = connected;
-    els.disconnectBtn.hidden = !connected;
+    els.connBox.hidden = connected;
+    els.setConnect.hidden = connected;
+    els.setDisconnect.hidden = !connected;
+    els.setLightName.textContent = state === 'on' ? 'Connected to ' + name : device ? name + ' (not connected)' : 'No light connected';
   }
 
   async function connect(showAll) {
+    if (prefs.sim) {
+      if (device && device.gatt.connected) { try { device.gatt.disconnect(); } catch {} }
+      device = makeSimDevice();
+      device.addEventListener('gattserverdisconnected', onDisconnect);
+      wantConnected = true;
+      try { await openGatt(true); } catch (e) { log('Couldn’t connect: ' + errText(e), true); setStatus('off'); }
+      return;
+    }
     if (!navigator.bluetooth) return;
     try {
       const opts = showAll
         ? { acceptAllDevices: true, optionalServices: [SVC] }
         : { filters: [{ namePrefix: 'Hue' }, { services: [SVC] }], optionalServices: [SVC] };
       const d = await navigator.bluetooth.requestDevice(opts);
-      if (device && device !== d) { try { device.gatt.disconnect(); } catch {} }
+      if (device && device !== d) { const old = device; device = d; try { old.gatt.disconnect(); } catch {} }
       device = d;
       device.addEventListener('gattserverdisconnected', onDisconnect);
       store.set('deviceId', device.id);
@@ -541,7 +872,7 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     } catch (e) {
       if (e && e.name === 'NotFoundError') { log('No light selected.'); return; }
       ready = false; setStatus('off');
-      log('Couldn’t connect: ' + (e && e.message ? e.message : e) + '. See “Trouble connecting?”', true);
+      log('Couldn’t connect: ' + (e && e.message ? e.message : e) + '. See Settings → Help.', true);
     }
   }
 
@@ -553,31 +884,26 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       const server = await device.gatt.connect();
       const svc = await server.getPrimaryService(SVC);
       const found = {};
-      for (const [k, u] of Object.entries(UUID)) {
-        try { found[k] = await svc.getCharacteristic(u); } catch {}
-      }
+      for (const [k, u] of Object.entries(UUID)) { try { found[k] = await svc.getCharacteristic(u); } catch {} }
       if (!found.power && !found.xy && !found.bri) throw new Error('This device doesn’t look like a Hue light');
-      chars = found; ready = true; retry = 0; confirmedWrite = false; seenErrors = new Set();
+      chars = found; ready = true; retry = 0; confirmedWrite = false; seenErrors = new Set(); hintedOffline = false;
       setStatus('on');
       const NAMES = { power: 'on/off', bri: 'brightness', ct: 'white temperature', xy: 'color' };
       const missing = Object.keys(UUID).filter(k => !found[k]).map(k => NAMES[k]);
-      log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''));
+      log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''), false, 'ok', true);
       await readState();
-      if (doCatchUp && settings.catchUp) catchUp();
+      if (afterConnect) { const f = afterConnect; afterConnect = null; f(); }
+      else if (doCatchUp && prefs.catchUp) catchUp();
     } finally {
       connecting = false;
     }
   }
 
-  function onDisconnect() {
+  function onDisconnect(ev) {
+    if (ev && ev.target && device && ev.target !== device) return;
     ready = false; chars = {}; pending.clear();
-    if (wantConnected) {
-      setStatus('retry');
-      log('Connection lost. Reconnecting…');
-      scheduleReconnect();
-    } else {
-      setStatus('off');
-    }
+    if (wantConnected) { setStatus('retry'); log('Connection lost. Reconnecting…'); scheduleReconnect(); }
+    else setStatus('off');
   }
 
   function scheduleReconnect() {
@@ -598,10 +924,21 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
     ready = false; chars = {};
     setStatus('off');
-    log('Disconnected.');
+    log('Disconnected.', false, '', true);
+  }
+
+  async function forgetLight() {
+    const d = device;
+    disconnect();
+    try { if (d && d.forget) await d.forget(); } catch {}
+    device = null;
+    store.set('deviceId', null);
+    setStatus('off');
+    log('Iris forgot this light. Connect again to choose one.', false, '', true);
   }
 
   async function tryRestore() {
+    if (prefs.sim && prefs.dev) { connect(false); return; }
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return;
     const id = store.get('deviceId', null);
     if (!id) return;
@@ -623,32 +960,37 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     try {
       if (chars.power) { const v = await chars.power.readValue(); light.on = v.getUint8(0) === 1; }
       if (chars.bri) { const v = await chars.bri.readValue(); light.bri = clamp(v.getUint8(0), 1, 254); }
-      if (chars.xy) {
+      if (chars.xy && light.mode === 'color') {
         const v = await chars.xy.readValue();
         if (v.byteLength >= 4) {
           const x = v.getUint16(0, true) / 65535, y = v.getUint16(2, true) / 65535;
-          if (x > 0 && y > 0 && light.mode === 'color') light.hex = xyToHex(x, y);
+          if (x > 0 && y > 0) {
+            const hx = xyToHex(x, y);
+            // Keep the saved color if the light reports almost the same thing (avoids rounding drift).
+            const [a, b] = hexToXY(light.hex);
+            if (Math.abs(a - x) + Math.abs(b - y) > 0.01) { light.hex = hx; light.label = ''; }
+          }
         }
       }
       saveLight(); render();
       hidePairHelp();
     } catch (e) {
       if (isAuthError(e)) {
-        log('The light is connected but not paired with this device yet, so it ignores commands. Follow the pairing steps shown under the lamp.', true);
+        log('The light is connected but not paired with this device yet, so it ignores commands. Follow the pairing steps.', true);
         showPairHelp();
       } else {
-        log('Couldn’t read the light’s current state (' + errText(e) + '). If changes don’t work either, run the test in Diagnostics.', true);
+        log('Couldn’t read the light’s current state (' + errText(e) + '). If changes don’t work either, run Diagnostics.', true);
       }
     }
   }
 
   // ---------- Write queue (one write at a time, latest value wins) ----------
   const pending = new Map();
-  let writing = false, idleWaiters = [];
+  let writing = false, idleWaiters = [], confirmedWrite = false, seenErrors = new Set(), writeCount = 0;
 
   function send(key, bytes) {
     if (!ready) {
-      if (!hintedOffline) { log('Not connected yet. Connect your Iris to send changes.'); hintedOffline = true; }
+      if (!hintedOffline) { log('Not connected yet. Connect your Iris to send changes.', false, '', true); hintedOffline = true; }
       return;
     }
     if (key === 'ct' && !chars.ct) { pending.set('xy', enc.xy(kelvinToXY(light.kelvin))); pump(); return; }
@@ -656,22 +998,18 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
     pump();
   }
 
-  // Use the write type the light advertises, and fall back to the other one if it is refused.
+  // Use the write type the light advertises. Fall back only when a type is unsupported:
+  // a write without response never reports a refusal, so other fallbacks would hide a pairing problem.
   async function writeChar(c, bytes) {
     const p = c.properties || {};
     const withResp = () => c.writeValueWithResponse ? c.writeValueWithResponse(bytes) : c.writeValue(bytes);
-    const noResp = () => c.writeValueWithoutResponse(bytes);
-    if (!p.write && p.writeWithoutResponse && c.writeValueWithoutResponse) return noResp();
+    if (!p.write && p.writeWithoutResponse && c.writeValueWithoutResponse) return c.writeValueWithoutResponse(bytes);
     try { return await withResp(); }
     catch (e) {
-      // Only fall back when this write type is unsupported. A write without response never reports
-      // a refusal, so falling back on other errors would hide a pairing problem.
-      if (e && e.name === 'NotSupportedError' && c.writeValueWithoutResponse) return await noResp();
+      if (e && e.name === 'NotSupportedError' && c.writeValueWithoutResponse) return await c.writeValueWithoutResponse(bytes);
       throw e;
     }
   }
-  const errText = e => (e && (e.name || 'Error')) + ': ' + (e && e.message ? e.message : String(e));
-  let confirmedWrite = false, seenErrors = new Set();
 
   async function pump() {
     if (writing) return;
@@ -684,20 +1022,17 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         if (!c) continue;
         try {
           await writeChar(c, bytes);
+          writeCount++;
           hidePairHelp();
-          if (!confirmedWrite) { confirmedWrite = true; log('The light accepted the change. If it still didn’t react, run the test in Diagnostics.', false, 'ok'); }
+          if (!confirmedWrite) { confirmedWrite = true; log('The light accepted the change.', false, 'ok'); }
         } catch (e) {
           if (!ready) break;
-          if (key === 'ct') {
-            chars.ct = null;
-            pending.set('xy', enc.xy(kelvinToXY(light.kelvin)));
-            continue;
-          }
+          if (key === 'ct') { chars.ct = null; pending.set('xy', enc.xy(kelvinToXY(light.kelvin))); continue; }
           const t = errText(e);
           if (isAuthError(e)) { showPairHelp(); if (seenErrors.has(t)) continue; }
           if (!seenErrors.has(t)) {
             seenErrors.add(t);
-            log('The light refused a change (' + t + ').' + (isAuthError(e) ? ' It needs to be paired first: see the steps under the lamp.' : ' Run the test in Diagnostics for what to do next.'), true);
+            log('The light refused a change (' + t + ').' + (isAuthError(e) ? ' It needs to be paired first.' : ' Run Diagnostics in Settings → Help.'), true);
           }
         }
       }
@@ -710,284 +1045,457 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
   const whenIdle = () => (!writing && !pending.size) ? Promise.resolve() : new Promise(r => idleWaiters.push(r));
 
   // ---------- Light actions ----------
-  function ensureOn() { if (!light.on) { light.on = true; send('power', enc.power(true)); } }
+  const colorBri = b => prefs.fullBri ? FULL : (b != null ? b : light.bri);
 
   function setPower(on) {
+    if (!on && fx) stopEffect(false);
     light.on = on; saveLight();
     send('power', enc.power(on));
     render();
   }
+  function powerOnIfOff() { if (!light.on) { light.on = true; send('power', enc.power(true)); } }
   function setBri(v) {
-    ensureOn();
     light.bri = clamp(Math.round(v), 1, 254); saveLight();
-    send('bri', enc.bri(light.bri));
+    powerOnIfOff();
+    if (!fx) send('bri', enc.bri(light.bri));
     render();
   }
   function setColor(hex, opts = {}) {
-    light.mode = 'color'; light.hex = hex.toLowerCase();
-    ensureOn();
+    if (fx && !opts.keepFx) stopEffect(false);
+    light.mode = 'color'; light.hex = hex.toLowerCase(); light.label = opts.label || '';
+    powerOnIfOff();
     send('xy', enc.xy(hexToXY(light.hex)));
-    if (opts.bri != null) { light.bri = opts.bri; send('bri', enc.bri(opts.bri)); }
+    const b = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
+    if (b !== light.bri || opts.forceBri) { light.bri = b; send('bri', enc.bri(b)); }
     saveLight(); render();
   }
   function setWhite(K, opts = {}) {
-    light.mode = 'white'; light.kelvin = clamp(Math.round(K), 2000, 6500);
-    ensureOn();
+    if (fx && !opts.keepFx) stopEffect(false);
+    light.mode = 'white'; light.kelvin = clamp(Math.round(K), 2000, 6500); light.label = opts.label || '';
+    powerOnIfOff();
     send('ct', enc.ct(light.kelvin));
-    if (opts.bri != null) { light.bri = opts.bri; send('bri', enc.bri(opts.bri)); }
+    const b = opts.exactBri != null ? opts.exactBri : colorBri(opts.bri);
+    if (b !== light.bri || opts.forceBri) { light.bri = b; send('bri', enc.bri(b)); }
     saveLight(); render();
   }
-  function applyState(s) {
+  function applyState(s, exact = false) {
     if (s.on === false) { setPower(false); return; }
-    if (s.mode === 'white') setWhite(s.kelvin, { bri: s.bri });
-    else setColor(s.hex, { bri: s.bri });
+    const o = { label: s.label };
+    if (exact) o.exactBri = s.bri; else o.bri = s.bri;
+    if (s.mode === 'white') setWhite(s.kelvin, o); else setColor(s.hex, o);
   }
   const displayHex = (s = light) => s.mode === 'white' ? kelvinToHex(s.kelvin) : s.hex;
+  function stateLabel(s = light) { return s.label || (s.mode === 'white' ? s.kelvin + 'K white' : s.hex.toUpperCase()); }
 
   // ---------- Render ----------
   function render() {
-    const root = document.documentElement.style;
-    root.setProperty('--lamp', displayHex());
-    root.setProperty('--glow', (light.bri / 254).toFixed(3));
+    const view = fx && fxView ? fxView : { hex: displayHex(), bri: light.bri };
+    root.setProperty('--lamp', view.hex);
+    root.setProperty('--glow', (view.bri / 254).toFixed(3));
     document.body.dataset.on = String(light.on);
     els.orb.setAttribute('aria-pressed', String(light.on));
     els.orb.setAttribute('aria-label', light.on ? 'Turn the light off' : 'Turn the light on');
     els.orbHint.textContent = light.on ? 'Click the lamp to turn it off' : 'The light is off. Click the lamp to turn it on';
     els.bri.value = light.bri;
     els.briOut.textContent = pct(light.bri);
-    els.tabs.forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === light.mode)));
-    els.colorPane.hidden = light.mode !== 'color';
-    els.whitePane.hidden = light.mode !== 'white';
-    if (els.colorPick.value.toLowerCase() !== light.hex) els.colorPick.value = light.hex;
-    els.hexOut.textContent = light.hex.toUpperCase();
+
+    // Now card
+    els.nowK.textContent = !light.on ? 'Off' : fx ? 'Effect' : 'Now';
+    els.nowLabel.textContent = fx ? fx.def.name : stateLabel();
+    els.nowDot.style.setProperty('--c', fx ? 'linear-gradient(135deg,' + fx.def.colors.join(',') + ')' : displayHex());
+    els.nowDot.style.background = fx ? 'linear-gradient(135deg,' + fx.def.colors.join(',') + ')' : displayHex();
+    els.nowStop.hidden = !fx;
+    els.fxStop.disabled = !fx;
+
+    // Color pane
+    els.modeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === light.mode)));
+    els.wheelBox.hidden = light.mode !== 'color';
+    els.whiteBox.hidden = light.mode !== 'white';
+    els.hexRow.hidden = light.mode !== 'color';
     els.kelvin.value = light.kelvin;
     els.kelvinOut.textContent = light.kelvin + 'K';
+    els.whitePreview.style.setProperty('--c', kelvinToHex(light.kelvin));
+    els.whiteChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(!fx && light.mode === 'white' && +c.dataset.k === light.kelvin)));
+    if (document.activeElement !== els.hexIn) els.hexIn.value = light.hex.toUpperCase();
+    if (els.colorPick.value.toLowerCase() !== light.hex) els.colorPick.value = light.hex;
+    placeWheelMark();
+    els.palette.querySelectorAll('.dot').forEach(d => d.setAttribute('aria-pressed', String(!fx && light.mode === 'color' && d.dataset.hex === light.hex)));
+    markCards();
   }
 
-  // ---------- Presets & favorites ----------
-  const PRESETS = [
-    { name: 'Focus', mode: 'white', kelvin: 5000, bri: 254 },
-    { name: 'Daylight', mode: 'white', kelvin: 4000, bri: 220 },
-    { name: 'Warm', mode: 'white', kelvin: 2700, bri: 170 },
-    { name: 'Calm blue', mode: 'color', hex: '#3d6bff', bri: 150 },
-    { name: 'Violet', mode: 'color', hex: '#8b4dff', bri: 160 },
-    { name: 'Sunset', mode: 'color', hex: '#ff6a2b', bri: 180 },
-    { name: 'Forest', mode: 'color', hex: '#2fd27a', bri: 160 },
-    { name: 'Do not disturb', mode: 'color', hex: '#ff2424', bri: 200 }
-  ];
-
-  function swatchButton(item, label) {
-    const b = document.createElement('button');
-    b.className = 'swatch';
-    b.type = 'button';
-    b.style.setProperty('--c', displayHex(item));
-    const dot = document.createElement('span'); dot.className = 'dot';
-    const t = document.createElement('span'); t.textContent = label;
-    b.append(dot, t);
-    b.addEventListener('click', () => applyState({ on: true, ...item }));
-    return b;
+  // ---------- Tabs ----------
+  const TAB_ORDER = ['color', 'scenes', 'effects', 'timers', 'schedule', 'settings'];
+  function showTab(id) {
+    if (!TAB_ORDER.includes(id)) id = 'color';
+    prefs.tab = id; savePrefs();
+    els.tabs.forEach(t => { const on = t.dataset.tab === id; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+    els.panes.forEach(p => { p.hidden = p.id !== 'pane-' + id; });
+    if (id === 'color') requestAnimationFrame(drawWheel);
   }
+  els.tabs.forEach(t => {
+    t.addEventListener('click', () => showTab(t.dataset.tab));
+    t.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const i = TAB_ORDER.indexOf(t.dataset.tab) + (e.key === 'ArrowRight' ? 1 : -1);
+      const next = TAB_ORDER[(i + TAB_ORDER.length) % TAB_ORDER.length];
+      showTab(next);
+      document.querySelector('.tab[data-tab="' + next + '"]').focus();
+    });
+  });
 
-  function renderPresets() {
-    els.presets.replaceChildren(...PRESETS.map(p => {
-      const b = swatchButton(p, p.name);
-      b.setAttribute('aria-label', 'Set light to ' + p.name);
+  // ---------- Color wheel ----------
+  let wheelSize = 0;
+  function drawWheel() {
+    const box = els.wheelBox;
+    const size = Math.round(box.clientWidth * Math.min(2, window.devicePixelRatio || 1));
+    if (!size || size === wheelSize) { placeWheelMark(); return; }
+    wheelSize = size;
+    const c = els.wheel; c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(size, size), data = img.data, R = size / 2;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - R + .5, dy = y - R + .5, d = Math.hypot(dx, dy);
+        if (d > R) continue;
+        const h = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, s = Math.min(1, d / R);
+        const f = n => { const k = (n + h / 60) % 6; return 1 - s * Math.max(0, Math.min(k, 4 - k, 1)); };
+        const i = (y * size + x) * 4;
+        data[i] = f(5) * 255; data[i + 1] = f(3) * 255; data[i + 2] = f(1) * 255;
+        data[i + 3] = clamp((R - d) * 2, 0, 1) * 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    placeWheelMark();
+  }
+  function placeWheelMark() {
+    const [h, s] = hexToHsv(light.hex);
+    const a = h * Math.PI / 180;
+    els.wheelMark.style.left = (50 + Math.cos(a) * s * 50) + '%';
+    els.wheelMark.style.top = (50 + Math.sin(a) * s * 50) + '%';
+    els.wheelMark.style.setProperty('--c', hsvToHex(h, s, 1));
+    els.wheelMark.hidden = light.mode !== 'color';
+  }
+  let wheelDrag = false, wheelEv = null, wheelRaf = 0;
+  function wheelColorAt(ev) {
+    const r = els.wheelBox.getBoundingClientRect();
+    const x = ev.clientX - r.left - r.width / 2, y = ev.clientY - r.top - r.height / 2;
+    const s = Math.min(1, Math.hypot(x, y) / (r.width / 2));
+    const h = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return hsvToHex(h, s, 1);
+  }
+  function wheelApply() { wheelRaf = 0; if (wheelEv) setColor(wheelColorAt(wheelEv)); }
+  els.wheelBox.addEventListener('pointerdown', e => {
+    wheelDrag = true; els.wheelBox.setPointerCapture(e.pointerId);
+    wheelEv = e; wheelApply();
+  });
+  els.wheelBox.addEventListener('pointermove', e => {
+    if (!wheelDrag) return;
+    wheelEv = e;
+    if (!wheelRaf) wheelRaf = requestAnimationFrame(wheelApply);
+  });
+  const wheelEnd = () => { if (!wheelDrag) return; wheelDrag = false; addRecent(light.hex); };
+  els.wheelBox.addEventListener('pointerup', wheelEnd);
+  els.wheelBox.addEventListener('pointercancel', wheelEnd);
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (!els.wheelBox.hidden) drawWheel(); }).observe(els.wheelBox);
+
+  // ---------- Palette, whites, recents, favorites ----------
+  function buildPalette() {
+    const rows = [1, .62, .32];
+    const out = [];
+    for (const s of rows) for (let h = 0; h < 360; h += 30) out.push(hsvToHex(h, s, 1));
+    els.palette.replaceChildren(...out.map(hex => {
+      const b = document.createElement('button');
+      b.className = 'dot'; b.type = 'button'; b.dataset.hex = hex; b.style.setProperty('--c', hex);
+      b.title = hex.toUpperCase(); b.setAttribute('aria-label', 'Color ' + hex.toUpperCase());
+      b.addEventListener('click', () => { setColor(hex); addRecent(hex); });
       return b;
     }));
   }
-
-  const favLabel = f => f.mode === 'white' ? f.kelvin + 'K white' : f.hex.toUpperCase();
-
+  const WHITES = [['Candle', 2000], ['Warm', 2700], ['Soft', 3000], ['Neutral', 4000], ['Daylight', 5000], ['Cool', 6500]];
+  function buildWhites() {
+    els.whiteChips.replaceChildren(...WHITES.map(([n, k]) => {
+      const b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button'; b.dataset.k = k;
+      const i = document.createElement('i'); i.style.setProperty('--c', kelvinToHex(k));
+      b.append(i, document.createTextNode(n));
+      b.addEventListener('click', () => setWhite(k, { label: n + ' white' }));
+      return b;
+    }));
+  }
+  function addRecent(hex) {
+    hex = hex.toLowerCase();
+    recents = [hex, ...recents.filter(h => h !== hex)].slice(0, 12);
+    store.set('recents', recents); renderRecents();
+  }
+  function renderRecents() {
+    els.recentEmpty.hidden = recents.length > 0;
+    els.recents.replaceChildren(...recents.map(hex => {
+      const b = document.createElement('button');
+      b.className = 'dot'; b.type = 'button'; b.style.setProperty('--c', hex); b.title = hex.toUpperCase();
+      b.setAttribute('aria-label', 'Recent color ' + hex.toUpperCase());
+      b.addEventListener('click', () => setColor(hex));
+      return b;
+    }));
+  }
+  const favLabel = f => f.label || (f.mode === 'white' ? f.kelvin + 'K white' : f.hex.toUpperCase());
   function renderFavs() {
     els.favEmpty.hidden = favorites.length > 0;
     els.favs.replaceChildren(...favorites.map(f => {
-      const wrap = document.createElement('div'); wrap.className = 'swatch-wrap';
-      const b = swatchButton(f, favLabel(f) + ', ' + pct(f.bri));
+      const wrap = document.createElement('div'); wrap.className = 'fav';
+      const b = document.createElement('button');
+      b.className = 'dot'; b.type = 'button'; b.style.setProperty('--c', displayHex(f)); b.title = favLabel(f);
+      b.setAttribute('aria-label', 'Favorite ' + favLabel(f));
+      b.addEventListener('click', () => applyState({ on: true, ...f }));
       const x = document.createElement('button');
-      x.className = 'remove'; x.type = 'button'; x.textContent = '×';
+      x.className = 'x'; x.type = 'button'; x.textContent = '✕';
       x.setAttribute('aria-label', 'Remove favorite ' + favLabel(f));
       x.addEventListener('click', () => { favorites = favorites.filter(o => o.id !== f.id); saveFavs(); renderFavs(); });
       wrap.append(b, x);
       return wrap;
     }));
   }
-
   els.saveFav.addEventListener('click', () => {
-    const f = { id: Date.now().toString(36), mode: light.mode, hex: light.hex, kelvin: light.kelvin, bri: light.bri };
-    const same = favorites.some(o => o.mode === f.mode && o.bri === f.bri && (f.mode === 'white' ? o.kelvin === f.kelvin : o.hex === f.hex));
-    if (same) { log('That one is already in your favorites.'); return; }
+    if (fx) { toast('Stop the effect first, then save the color you like.'); return; }
+    const f = { id: Date.now().toString(36), mode: light.mode, hex: light.hex, kelvin: light.kelvin, bri: light.bri, label: light.label };
+    const same = favorites.some(o => o.mode === f.mode && (f.mode === 'white' ? o.kelvin === f.kelvin : o.hex === f.hex));
+    if (same) { toast('That one is already in your favorites.'); return; }
     favorites.push(f);
-    if (favorites.length > 12) favorites.shift();
+    if (favorites.length > 24) favorites.shift();
     saveFavs(); renderFavs();
-    log('Saved ' + favLabel(f) + ' to favorites.');
+    log('Saved ' + favLabel(f) + ' to favorites.', false, '', true);
   });
 
-  // ---------- Schedule ----------
-  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
-
-  const todayStr = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  function entryDate(e, now) { const [h, m] = e.time.split(':').map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; }
-  function fmtTime(t) { const [h, m] = t.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
-  function daysLabel(days) {
-    const s = [...days].sort().join(',');
-    if (s === '0,1,2,3,4,5,6') return 'Every day';
-    if (s === '1,2,3,4,5') return 'Weekdays';
-    if (s === '0,6') return 'Weekends';
-    return DAY_ORDER.filter(d => days.includes(d)).map(d => DAY_NAMES[d]).join(', ');
+  els.modeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.mode === 'white') setWhite(light.kelvin); else setColor(light.hex);
+    if (b.dataset.mode === 'color') requestAnimationFrame(drawWheel);
+  }));
+  els.kelvin.addEventListener('input', () => setWhite(+els.kelvin.value));
+  els.colorPick.addEventListener('input', () => setColor(els.colorPick.value));
+  els.colorPick.addEventListener('change', () => addRecent(els.colorPick.value));
+  function applyHexInput() {
+    let v = els.hexIn.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + v.slice(1).split('').map(c => c + c).join('');
+    if (!/^#[0-9a-f]{6}$/i.test(v)) { toast('Type a color code like #FF2424.', true); return; }
+    setColor(v); addRecent(v);
   }
-  function describeEntry(e) {
-    if (e.action === 'off') return 'Turn off';
-    if (e.action === 'white') return 'White ' + e.kelvin + 'K at ' + pct(e.bri);
-    return 'Color ' + e.hex.toUpperCase() + ' at ' + pct(e.bri);
+  els.hexGo.addEventListener('click', applyHexInput);
+  els.hexIn.addEventListener('keydown', e => { if (e.key === 'Enter') applyHexInput(); });
+
+  // ---------- Effects ----------
+  const WARM = kelvinToHex(2400), SNOW = kelvinToHex(6500), SOFTWHITE = kelvinToHex(4200);
+  const RED = '#ff1a1a', GREEN = '#0fbf3c', GOLD = '#ffb000', XBLUE = '#2a5bff';
+  function cycle(cols, t, period, fade) {
+    const x = t / period, n = cols.length, i = Math.floor(x) % n, ph = x - Math.floor(x);
+    const a = cols[i], b = cols[(i + 1) % n];
+    return ph < 1 - fade ? a : mixHex(a, b, (ph - (1 - fade)) / fade);
   }
-  function applyEntry(e) {
-    if (e.action === 'off') setPower(false);
-    else if (e.action === 'white') setWhite(e.kelvin, { bri: e.bri });
-    else setColor(e.hex, { bri: e.bri });
+  const FX_LIST = [
+    { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 450,
+      frame: (t, s) => { if (!s.c || Math.random() < .5) s.c = pick([RED, GREEN, GOLD, RED, GREEN, XBLUE].filter(c => c !== s.c)); return { hex: s.c, f: rand(.7, 1), hold: rand(300, 750) }; } },
+    { id: 'christmas', name: 'Merry cycle', cat: 'Christmas', colors: [RED, GREEN, GOLD, WARM], ms: 220,
+      frame: (t, s, k) => ({ hex: cycle([RED, GREEN, GOLD, WARM], t * k, 6, .45) }) },
+    { id: 'candycane', name: 'Candy cane', cat: 'Christmas', colors: ['#ff1428', SOFTWHITE, '#ff1428'], ms: 200,
+      frame: (t, s, k) => ({ hex: cycle(['#ff1428', SOFTWHITE], t * k, 2.4, .3) }) },
+    { id: 'fireplace', name: 'Fireplace', cat: 'Christmas', colors: ['#ff3c00', '#ff7a12', '#ffb04a'], ms: 260,
+      frame: () => ({ hex: mixHex('#ff3c00', '#ff9a1f', Math.random()), f: rand(.6, 1), hold: rand(140, 380) }) },
+    { id: 'snow', name: 'Snowfall', cat: 'Christmas', colors: [SNOW, '#bfe6ff', '#ffffff'], ms: 300,
+      frame: (t, s, k) => ({ hex: mixHex(SNOW, '#a9dcff', .5 + .5 * Math.sin(t * .6 * k)), f: Math.random() < .08 ? 1 : .8 + .15 * Math.sin(t * 1.3 * k) }) },
+    { id: 'starry', name: 'Starry night', cat: 'Christmas', colors: ['#1d2fbf', '#3b2cff', '#ffd27a'], ms: 350,
+      frame: (t, s, k) => Math.random() < .07 ? { hex: '#ffd27a', f: 1, hold: 220 } : { hex: mixHex('#1d2fbf', '#3b2cff', .5 + .5 * Math.sin(t * .4 * k)), f: .8 + .2 * Math.sin(t * .5 * k) } },
+    { id: 'candle', name: 'Candlelight', cat: 'Cozy', colors: ['#ff7a12', '#ffb04a'], ms: 140,
+      frame: (t, s) => { s.f = (s.f || .8) * .5 + rand(.65, 1) * .5; return { hex: mixHex('#ff7a12', '#ffb04a', rand(0, .6)), f: s.f, hold: rand(100, 220) }; } },
+    { id: 'breathe', name: 'Breathe', cat: 'Cozy', colors: ['#6c8cff', '#1b2140'], ms: 160, usesCurrent: true,
+      frame: (t, s, k, c) => ({ hex: c.startHex, f: .15 + .85 * (.5 - .5 * Math.cos(2 * Math.PI * t * k / 6)) }) },
+    { id: 'aurora', name: 'Aurora', cat: 'Cozy', colors: ['#10e0a0', '#2a7bff', '#9b4dff'], ms: 260,
+      frame: (t, s, k) => ({ hex: hsvToHex((215 + 65 * Math.sin(t * .13 * k) + 18 * Math.sin(t * .41 * k) + 360) % 360, .85 + .15 * Math.sin(t * .21 * k), 1) }) },
+    { id: 'ocean', name: 'Ocean', cat: 'Cozy', colors: ['#00b4ff', '#0050ff', '#00e0c6'], ms: 260,
+      frame: (t, s, k) => ({ hex: hsvToHex(200 + 22 * Math.sin(t * .35 * k) + 8 * Math.sin(t * 1.1 * k), 1, 1), f: .85 + .15 * Math.sin(t * .8 * k) }) },
+    { id: 'rainbow', name: 'Rainbow', cat: 'Party', colors: ['#ff0000', '#ffbf00', '#00ff40', '#0080ff', '#bf00ff', '#ff0000'], ms: 220,
+      frame: (t, s, k) => ({ hex: hsvToHex((t * 24 * k) % 360, 1, 1) }) },
+    { id: 'party', name: 'Party', cat: 'Party', colors: ['#ff00d4', '#00e1ff', '#ffe600', '#7a00ff'], ms: 500,
+      frame: (t, s) => { s.h = ((s.h ?? rand(0, 360)) + rand(90, 220)) % 360; return { hex: hsvToHex(s.h, 1, 1), hold: 520 }; } },
+    { id: 'sunrise', name: 'Sunrise', cat: 'Wake & sleep', colors: ['#ff2000', '#ff7a10', kelvinToHex(5000)], ms: 1000, timed: true,
+      frame: (t, s, k, c) => {
+        const p = t / c.dur; if (p >= 1) return { done: true };
+        const hex = p < .35 ? mixHex('#ff2000', '#ff7a10', p / .35) : p < .7 ? mixHex('#ff7a10', kelvinToHex(2700), (p - .35) / .35) : mixHex(kelvinToHex(2700), kelvinToHex(5000), (p - .7) / .3);
+        return { hex, f: .01 + .99 * Math.pow(p, 1.6), abs: true };
+      },
+      end: () => setWhite(5000, { exactBri: FULL, label: 'Daylight' }) },
+    { id: 'sunset', name: 'Sunset', cat: 'Wake & sleep', colors: [kelvinToHex(4000), '#ff7a10', '#3a0a00'], ms: 1000, timed: true,
+      frame: (t, s, k, c) => {
+        const p = t / c.dur; if (p >= 1) return { done: true };
+        return { hex: mixHex(c.startHex, kelvinToHex(2000), Math.min(1, p * 1.6)), f: (c.startBri / 254) * (1 - p) + .004, abs: true };
+      },
+      end: () => setPower(false) }
+  ];
+  const FX = Object.fromEntries(FX_LIST.map(f => [f.id, f]));
+  const SPEEDS = [.45, .7, 1, 1.5, 2.3];
+  const speedMul = () => SPEEDS[clamp(prefs.fxSpeed, 1, 5) - 1];
+
+  let fx = null, fxView = null;
+  function paint(hex, f = 1, abs = false) {
+    const bri = clamp(Math.round(abs ? f * 254 : light.bri * f), 1, 254);
+    fxView = { hex, bri };
+    root.setProperty('--lamp', hex);
+    root.setProperty('--glow', (bri / 254).toFixed(3));
+    if (ready) { send('xy', enc.xy(hexToXY(hex))); send('bri', enc.bri(bri)); }
   }
-
-  function renderSchedule() {
-    schedule.sort((a, b) => a.time.localeCompare(b.time));
-    els.schedEmpty.hidden = schedule.length > 0;
-    els.schedList.replaceChildren(...schedule.map(e => {
-      const li = document.createElement('li');
-      li.className = 'sched-item';
-      li.dataset.enabled = String(e.enabled);
-
-      const dot = document.createElement('span');
-      dot.className = 'dot' + (e.action === 'off' ? ' off' : '');
-      if (e.action !== 'off') dot.style.setProperty('--c', e.action === 'white' ? kelvinToHex(e.kelvin) : e.hex);
-
-      const text = document.createElement('div'); text.className = 'sched-text';
-      const time = document.createElement('div'); time.className = 'sched-time'; time.textContent = fmtTime(e.time);
-      const desc = document.createElement('div'); desc.className = 'sched-desc'; desc.textContent = describeEntry(e) + ', ' + daysLabel(e.days);
-      text.append(time, desc);
-
-      const actions = document.createElement('div'); actions.className = 'sched-actions';
-      const sw = document.createElement('input');
-      sw.type = 'checkbox'; sw.className = 'switch'; sw.checked = e.enabled;
-      sw.setAttribute('aria-label', 'Turn the ' + fmtTime(e.time) + ' change ' + (e.enabled ? 'off' : 'on'));
-      sw.addEventListener('change', () => { e.enabled = sw.checked; saveSchedule(); renderSchedule(); });
-      const tryBtn = document.createElement('button');
-      tryBtn.className = 'btn small'; tryBtn.type = 'button'; tryBtn.textContent = 'Try it';
-      tryBtn.addEventListener('click', () => applyEntry(e));
-      const del = document.createElement('button');
-      del.className = 'btn small'; del.type = 'button'; del.textContent = 'Remove';
-      del.setAttribute('aria-label', 'Remove the ' + fmtTime(e.time) + ' change');
-      del.addEventListener('click', () => { schedule = schedule.filter(o => o.id !== e.id); saveSchedule(); renderSchedule(); log('Removed the ' + fmtTime(e.time) + ' change.'); });
-      actions.append(sw, tryBtn, del);
-
-      li.append(dot, text, actions);
-      return li;
-    }));
-  }
-
-  function runEntry(e) {
-    e.lastRun = todayStr();
-    saveSchedule();
-    applyEntry(e);
-    log('Scheduled change: ' + describeEntry(e) + '.');
-  }
-
-  function tickSchedule() {
-    if (!ready) return;
-    const now = new Date(), today = todayStr(now);
-    for (const e of schedule) {
-      if (!e.enabled || e.lastRun === today || !e.days.includes(now.getDay())) continue;
-      const diff = now - entryDate(e, now);
-      if (diff >= 0 && diff < 10 * 60 * 1000) runEntry(e);
+  async function startEffect(id, opts = {}) {
+    const def = FX[id]; if (!def) return;
+    if (fx) stopEffect(false);
+    const token = {};
+    const durMin = opts.dur != null ? opts.dur : prefs.fxDur;
+    fx = { id, def, token, t0: performance.now(), dur: Math.max(5, durMin * 60), startHex: displayHex(), startBri: light.bri, prev: { ...light } };
+    if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; saveLight(); }
+    if (!light.on) { light.on = true; saveLight(); send('power', enc.power(true)); }
+    render();
+    log('Effect started: ' + def.name + '.');
+    const st = {};
+    while (fx && fx.token === token) {
+      const t = (performance.now() - fx.t0) / 1000;
+      const out = def.frame(t, st, speedMul(), fx);
+      if (!out || out.done) {
+        fx = null; fxView = null;
+        log('Effect finished: ' + def.name + '.');
+        if (def.end) def.end(); else render();
+        break;
+      }
+      paint(out.hex, out.f ?? 1, out.abs);
+      els.nowExtra.hidden = !def.timed;
+      if (def.timed) els.nowExtra.textContent = fmtMS((fx.dur - t) * 1000) + ' left';
+      await whenIdle();
+      if (!fx || fx.token !== token) break;
+      await sleep(Math.max(110, (out.hold ?? def.ms) / (def.timed ? 1 : speedMul())));
     }
   }
-
-  function catchUp() {
-    const now = new Date(), today = todayStr(now);
-    const due = schedule.filter(e => e.enabled && e.days.includes(now.getDay()) && entryDate(e, now) <= now);
-    if (!due.length) return;
-    due.sort((a, b) => a.time.localeCompare(b.time));
-    const last = due[due.length - 1];
-    due.forEach(e => { e.lastRun = today; });
-    saveSchedule();
-    applyEntry(last);
-    log('Caught up on the ' + fmtTime(last.time) + ' change: ' + describeEntry(last) + '.');
+  function stopEffect(restore) {
+    if (!fx) return;
+    const prev = fx.prev;
+    fx = null; fxView = null;
+    els.nowExtra.hidden = true;
+    pending.delete('xy'); pending.delete('bri');
+    if (restore) applyState({ ...prev, on: true }, true);
+    render();
   }
+  function fxCard(def, label, extra) {
+    const b = document.createElement('button');
+    b.className = 'scard'; b.type = 'button'; b.dataset.fx = def.id;
+    const sw = document.createElement('span'); sw.className = 'sw anim';
+    sw.style.setProperty('--g', 'linear-gradient(90deg,' + [...def.colors, def.colors[0]].join(',') + ')');
+    const n = document.createElement('b'); n.textContent = label || def.name;
+    const sm = document.createElement('small');
+    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : 'Animated';
+    const cat = document.createElement('span'); cat.textContent = extra || def.cat;
+    sm.append(tg, cat);
+    b.append(sw, n, sm);
+    b.addEventListener('click', () => { if (fx && fx.id === def.id) stopEffect(true); else startEffect(def.id); });
+    return b;
+  }
+  function buildFx() { els.fxGrid.replaceChildren(...FX_LIST.map(d => fxCard(d))); }
+  els.fxSpeed.value = prefs.fxSpeed;
+  els.fxSpeed.addEventListener('input', () => { prefs.fxSpeed = +els.fxSpeed.value; savePrefs(); });
+  els.fxDur.value = String(prefs.fxDur);
+  els.fxDur.addEventListener('change', () => { prefs.fxDur = +els.fxDur.value; savePrefs(); if (fx && fx.def.timed) fx.dur = prefs.fxDur * 60; });
+  els.fxStop.addEventListener('click', () => stopEffect(true));
+  els.nowStop.addEventListener('click', () => stopEffect(true));
 
-  // Add form
-  function buildDayPicker() {
-    els.addDays.replaceChildren(...DAY_ORDER.map(d => {
-      const lab = document.createElement('label'); lab.className = 'day';
-      const inp = document.createElement('input'); inp.type = 'checkbox'; inp.value = String(d); inp.checked = d >= 1 && d <= 5;
-      const sp = document.createElement('span'); sp.textContent = DAY_NAMES[d];
-      lab.append(inp, sp);
-      return lab;
+  // ---------- Scenes ----------
+  const SCENES = {
+    christmas: { name: 'Christmas', list: [
+      { fx: 'twinkle' }, { fx: 'christmas' }, { fx: 'candycane' }, { fx: 'fireplace' }, { fx: 'snow' }, { fx: 'starry' },
+      { name: 'Holly berry', mode: 'color', hex: '#d4001c' },
+      { name: 'Mistletoe', mode: 'color', hex: '#0fae38' },
+      { name: 'Gold star', mode: 'color', hex: '#ffb300' },
+      { name: 'Fresh snow', mode: 'white', kelvin: 6500 },
+      { name: 'Silent night', mode: 'color', hex: '#1d2fbf' },
+      { name: 'Gingerbread', mode: 'color', hex: '#ff7a1f' },
+      { name: 'Mulled wine', mode: 'color', hex: '#b0002f' },
+      { name: 'Frost', mode: 'color', hex: '#7fcfff' },
+      { name: 'Pine forest', mode: 'color', hex: '#0b8f4a' },
+      { name: 'Hot cocoa', mode: 'white', kelvin: 2200 }
+    ]},
+    everyday: { name: 'Everyday', list: [
+      { name: 'Energize', mode: 'white', kelvin: 6500 },
+      { name: 'Focus', mode: 'white', kelvin: 5000 },
+      { name: 'Read', mode: 'white', kelvin: 4000 },
+      { name: 'Relax', mode: 'white', kelvin: 2700 },
+      { name: 'Cozy', mode: 'white', kelvin: 2200 },
+      { name: 'Candle', mode: 'white', kelvin: 2000 },
+      { name: 'Movie night', mode: 'color', hex: '#3a1fff' },
+      { name: 'Do not disturb', mode: 'color', hex: '#ff2424' },
+      { name: 'Available', mode: 'color', hex: '#18d860' },
+      { name: 'Nightlight', mode: 'color', hex: '#ff5a00' },
+      { fx: 'sunrise' }, { fx: 'sunset' }
+    ]},
+    moods: { name: 'Moods', list: [
+      { name: 'Sunset', mode: 'color', hex: '#ff6a2b' },
+      { name: 'Ocean', mode: 'color', hex: '#0aa2ff' },
+      { name: 'Forest', mode: 'color', hex: '#2fd27a' },
+      { name: 'Lavender', mode: 'color', hex: '#a678ff' },
+      { name: 'Rose', mode: 'color', hex: '#ff4f9a' },
+      { name: 'Neon pink', mode: 'color', hex: '#ff00d4' },
+      { name: 'Lagoon', mode: 'color', hex: '#00e0c6' },
+      { name: 'Peach', mode: 'color', hex: '#ffa07a' },
+      { name: 'Electric', mode: 'color', hex: '#4d5bff' },
+      { name: 'Lime', mode: 'color', hex: '#b4ff1a' },
+      { name: 'Amber', mode: 'color', hex: '#ffbf00' },
+      { name: 'Ruby', mode: 'color', hex: '#e0115f' },
+      { fx: 'aurora' }, { fx: 'ocean' }, { fx: 'rainbow' }, { fx: 'party' }
+    ]}
+  };
+  function sceneCard(sc) {
+    if (sc.fx) return fxCard(FX[sc.fx]);
+    const b = document.createElement('button');
+    b.className = 'scard'; b.type = 'button'; b.dataset.scene = sc.name;
+    const hex = displayHex(sc);
+    const sw = document.createElement('span'); sw.className = 'sw';
+    sw.style.setProperty('--g', 'radial-gradient(120% 140% at 30% 20%, ' + mixHex(hex, '#ffffff', .35) + ', ' + hex + ' 55%, ' + mixHex(hex, '#000000', .35) + ')');
+    const n = document.createElement('b'); n.textContent = sc.name;
+    const sm = document.createElement('small'); sm.textContent = sc.mode === 'white' ? sc.kelvin + 'K white' : hex.toUpperCase();
+    b.append(sw, n, sm);
+    b.addEventListener('click', () => applyState({ on: true, ...sc, label: sc.name }));
+    return b;
+  }
+  function buildScenes() {
+    els.sceneCats.replaceChildren(...Object.entries(SCENES).map(([id, c]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.role = 'tab'; b.textContent = c.name; b.dataset.cat = id;
+      b.addEventListener('click', () => { prefs.sceneCat = id; savePrefs(); renderScenes(); });
+      return b;
     }));
+    renderScenes();
   }
-  function syncAddForm() {
-    const a = els.addAction.value;
-    els.addColorWrap.hidden = a !== 'color';
-    els.addKelvinWrap.hidden = a !== 'white';
-    els.addBriWrap.hidden = a === 'off';
-    els.addKelvinOut.textContent = els.addKelvin.value + 'K';
-    els.addBriOut.textContent = pct(+els.addBri.value);
+  function renderScenes() {
+    if (!SCENES[prefs.sceneCat]) prefs.sceneCat = 'christmas';
+    els.sceneCats.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.cat === prefs.sceneCat)));
+    els.sceneGrid.replaceChildren(...SCENES[prefs.sceneCat].list.map(sceneCard));
+    markCards();
   }
-  function defaultAddTime() {
-    const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
-    els.addTime.value = String(d.getHours()).padStart(2, '0') + ':00';
+  function markCards() {
+    document.querySelectorAll('.scard').forEach(c => {
+      const on = c.dataset.fx ? !!fx && fx.id === c.dataset.fx : !fx && !!light.label && c.dataset.scene === light.label;
+      c.setAttribute('aria-pressed', String(on));
+    });
   }
-  els.addAction.addEventListener('change', syncAddForm);
-  els.addKelvin.addEventListener('input', syncAddForm);
-  els.addBri.addEventListener('input', syncAddForm);
-  els.addBtn.addEventListener('click', () => {
-    const time = els.addTime.value;
-    const days = [...els.addDays.querySelectorAll('input:checked')].map(i => +i.value);
-    if (!time) { showAddError('Pick a time for this change.'); return; }
-    if (!days.length) { showAddError('Pick at least one day.'); return; }
-    els.addError.hidden = true;
-    const e = {
-      id: Date.now().toString(36), time, days, enabled: true, lastRun: null,
-      action: els.addAction.value, hex: els.addColor.value.toLowerCase(), kelvin: +els.addKelvin.value, bri: +els.addBri.value
-    };
-    // If the time already passed today, don't fire it right away
-    if (days.includes(new Date().getDay()) && entryDate(e, new Date()) <= new Date()) e.lastRun = todayStr();
-    schedule.push(e);
-    saveSchedule(); renderSchedule();
-    log('Added: ' + describeEntry(e) + ' at ' + fmtTime(time) + ', ' + daysLabel(days) + '.');
-  });
-  function showAddError(msg) { els.addError.textContent = msg; els.addError.hidden = false; }
-
-  els.catchUp.checked = settings.catchUp;
-  els.catchUp.addEventListener('change', () => { settings.catchUp = els.catchUp.checked; saveSettings(); });
 
   // ---------- Focus timer ----------
   let timerEnd = null, timerTimeout = null, timerTick = null, flashing = false, audioCtx = null;
-  const fmtMS = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
-
+  const fmtMS = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(Math.floor(s / 60)).padStart(2, '0')) + ':' + String(s % 60).padStart(2, '0'); };
   function renderTimerChips() {
-    els.timerChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.min === settings.timerMin)));
-    if (![15, 25, 50].includes(settings.timerMin)) els.timerCustom.value = settings.timerMin;
-    if (!timerEnd) els.timerDisplay.textContent = fmtMS(settings.timerMin * 60000);
+    els.timerChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.min === prefs.timerMin)));
+    if (![5, 15, 25, 50].includes(prefs.timerMin)) els.timerCustom.value = prefs.timerMin;
+    if (!timerEnd) els.timerDisplay.textContent = fmtMS(prefs.timerMin * 60000);
   }
-  els.timerChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
-    settings.timerMin = +c.dataset.min; els.timerCustom.value = ''; saveSettings(); renderTimerChips();
-  }));
-  els.timerCustom.addEventListener('input', () => {
-    const v = Math.round(+els.timerCustom.value);
-    if (v >= 1 && v <= 240) { settings.timerMin = v; saveSettings(); renderTimerChips(); }
-  });
-
-  els.alertColor.value = settings.alertColor;
-  els.afterAlert.value = settings.afterAlert;
-  els.beep.checked = settings.beep;
-  els.alertColor.addEventListener('input', () => { settings.alertColor = els.alertColor.value; saveSettings(); });
-  els.afterAlert.addEventListener('change', () => { settings.afterAlert = els.afterAlert.value; saveSettings(); });
-  els.beep.addEventListener('change', () => { settings.beep = els.beep.checked; saveSettings(); if (settings.beep) ensureAudio(); });
-
-  function ensureAudio() {
-    try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-    } catch {}
-  }
+  els.timerChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { prefs.timerMin = +c.dataset.min; els.timerCustom.value = ''; savePrefs(); renderTimerChips(); }));
+  els.timerCustom.addEventListener('input', () => { const v = Math.round(+els.timerCustom.value); if (v >= 1 && v <= 240) { prefs.timerMin = v; savePrefs(); renderTimerChips(); } });
+  els.alertColor.value = prefs.alertColor;
+  els.afterAlert.value = prefs.afterAlert;
+  els.beep.checked = prefs.beep;
+  els.alertColor.addEventListener('input', () => { prefs.alertColor = els.alertColor.value; savePrefs(); });
+  els.afterAlert.addEventListener('change', () => { prefs.afterAlert = els.afterAlert.value; savePrefs(); });
+  els.beep.addEventListener('change', () => { prefs.beep = els.beep.checked; savePrefs(); if (prefs.beep) ensureAudio(); });
+  function ensureAudio() { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch {} }
   function beep() {
     if (!audioCtx) return;
     const t0 = audioCtx.currentTime;
@@ -1001,88 +1509,303 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       osc.start(t0 + o); osc.stop(t0 + o + 0.3);
     });
   }
-
   function startTimer() {
-    if (settings.beep) ensureAudio();
-    const ms = settings.timerMin * 60000;
+    if (prefs.beep) ensureAudio();
+    const ms = prefs.timerMin * 60000;
     timerEnd = Date.now() + ms;
     clearTimeout(timerTimeout); clearInterval(timerTick);
     timerTimeout = setTimeout(timerDone, ms);
-    timerTick = setInterval(updateTimerDisplay, 500);
-    updateTimerDisplay();
+    timerTick = setInterval(updateTimers, 500);
+    updateTimers();
     els.timerBtn.textContent = 'Stop timer';
-    log('Focus timer started: ' + settings.timerMin + ' min.');
+    log('Focus timer started: ' + prefs.timerMin + ' min.', false, '', true);
   }
   function stopTimer(silent) {
-    clearTimeout(timerTimeout); clearInterval(timerTick);
+    clearTimeout(timerTimeout);
     timerEnd = null;
-    document.title = 'Iris';
     els.timerBtn.textContent = 'Start timer';
-    renderTimerChips();
+    renderTimerChips(); updateTitle();
     if (!silent) log('Focus timer stopped.');
-  }
-  function updateTimerDisplay() {
-    if (!timerEnd) return;
-    const left = timerEnd - Date.now();
-    els.timerDisplay.textContent = fmtMS(left);
-    document.title = fmtMS(left) + ' – Iris';
-    if (left <= 0) timerDone();
   }
   async function timerDone() {
     if (!timerEnd) return;
     stopTimer(true);
-    log('Time’s up.');
-    if (settings.beep) beep();
+    log('Time’s up.', false, '', true);
+    if (prefs.beep) beep();
     await alertFlash();
   }
   async function alertFlash() {
     if (!ready) { log('The light isn’t connected, so it couldn’t flash.', true); return; }
     if (flashing) return;
     flashing = true;
+    if (fx) stopEffect(true);
     const prev = { ...light };
     try {
       for (let i = 0; i < 4; i++) {
-        setColor(settings.alertColor, { bri: 254 });
+        setColor(prefs.alertColor, { exactBri: FULL, forceBri: true, label: 'Time’s up' });
         await whenIdle(); await sleep(500);
         light.bri = 25; send('bri', enc.bri(25)); render();
         await whenIdle(); await sleep(500);
       }
-      if (settings.afterAlert === 'restore') applyState(prev);
-      else setColor(settings.alertColor, { bri: 254 });
-    } finally {
-      flashing = false;
-    }
+      if (prefs.afterAlert === 'restore') applyState(prev, true);
+      else setColor(prefs.alertColor, { exactBri: FULL, forceBri: true });
+    } finally { flashing = false; }
   }
   els.timerBtn.addEventListener('click', () => timerEnd ? stopTimer(false) : startTimer());
-  els.testFlash.addEventListener('click', () => { if (settings.beep) { ensureAudio(); beep(); } alertFlash(); });
+  els.testFlash.addEventListener('click', () => { if (prefs.beep) { ensureAudio(); beep(); } alertFlash(); });
+
+  // ---------- Sleep timer ----------
+  let sleepEnd = null, sleepFading = false;
+  function renderSleepChips() {
+    els.sleepChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.min === prefs.sleepMin)));
+    if (!sleepEnd) els.sleepDisplay.textContent = fmtMS(prefs.sleepMin * 60000);
+  }
+  els.sleepChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { prefs.sleepMin = +c.dataset.min; savePrefs(); renderSleepChips(); }));
+  els.sleepFade.checked = prefs.sleepFade;
+  els.sleepFade.addEventListener('change', () => { prefs.sleepFade = els.sleepFade.checked; savePrefs(); });
+  function startSleep() {
+    sleepEnd = Date.now() + prefs.sleepMin * 60000; sleepFading = false;
+    clearInterval(timerTick); timerTick = setInterval(updateTimers, 500);
+    els.sleepBtn.textContent = 'Cancel sleep timer';
+    updateTimers();
+    log('Sleep timer: the light turns off in ' + prefs.sleepMin + ' min.', false, '', true);
+  }
+  function stopSleep(silent) {
+    sleepEnd = null; sleepFading = false;
+    els.sleepBtn.textContent = 'Start sleep timer';
+    renderSleepChips(); updateTitle();
+    if (!silent) log('Sleep timer cancelled.', false, '', true);
+  }
+  els.sleepBtn.addEventListener('click', () => sleepEnd ? stopSleep(false) : startSleep());
+
+  function updateTitle() {
+    const parts = [];
+    if (timerEnd) parts.push(fmtMS(timerEnd - Date.now()));
+    if (sleepEnd) parts.push('☾ ' + fmtMS(sleepEnd - Date.now()));
+    document.title = parts.length ? parts.join(' · ') + ' – Iris' : 'Iris';
+  }
+  function updateTimers() {
+    if (timerEnd) {
+      const left = timerEnd - Date.now();
+      els.timerDisplay.textContent = fmtMS(left);
+      if (left <= 0) timerDone();
+    }
+    if (sleepEnd) {
+      const left = sleepEnd - Date.now();
+      els.sleepDisplay.textContent = fmtMS(left);
+      if (prefs.sleepFade && !sleepFading && light.on && left > 0 && left <= 5 * 60000) {
+        sleepFading = true;
+        startEffect('sunset', { dur: left / 60000 });
+      }
+      if (left <= 0) {
+        stopSleep(true);
+        if (!(fx && fx.id === 'sunset')) setPower(false);
+        log('Sleep timer done. Good night.', false, '', true);
+      }
+    }
+    if (!timerEnd && !sleepEnd) { clearInterval(timerTick); timerTick = null; }
+    updateTitle();
+  }
+
+  // ---------- Schedule ----------
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const todayStr = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  function entryDate(e, now) { const [h, m] = e.time.split(':').map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; }
+  function fmtTime(t) { const [h, m] = t.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function daysLabel(days) {
+    const s = [...days].sort().join(',');
+    if (s === '0,1,2,3,4,5,6') return 'Every day';
+    if (s === '1,2,3,4,5') return 'Weekdays';
+    if (s === '0,6') return 'Weekends';
+    return DAY_ORDER.filter(d => days.includes(d)).map(d => DAY_NAMES[d]).join(', ');
+  }
+  function describeEntry(e) {
+    if (e.action === 'off') return 'Turn off';
+    if (e.action === 'fx') return (FX[e.fx] ? FX[e.fx].name : 'Effect') + ' at ' + pct(e.bri);
+    if (e.action === 'white') return 'White ' + e.kelvin + 'K at ' + pct(e.bri);
+    return 'Color ' + e.hex.toUpperCase() + ' at ' + pct(e.bri);
+  }
+  function applyEntry(e) {
+    if (e.action === 'off') setPower(false);
+    else if (e.action === 'fx') { light.bri = e.bri; saveLight(); startEffect(e.fx, { keepBri: true }); }
+    else if (e.action === 'white') setWhite(e.kelvin, { exactBri: e.bri, forceBri: true });
+    else setColor(e.hex, { exactBri: e.bri, forceBri: true });
+  }
+  function entryColor(e) { return e.action === 'white' ? kelvinToHex(e.kelvin) : e.action === 'fx' && FX[e.fx] ? 'linear-gradient(135deg,' + FX[e.fx].colors.join(',') + ')' : e.hex; }
+  function renderSchedule() {
+    schedule.sort((a, b) => a.time.localeCompare(b.time));
+    els.schedEmpty.hidden = schedule.length > 0;
+    els.schedList.replaceChildren(...schedule.map(e => {
+      const li = document.createElement('li');
+      li.className = 'sched-item'; li.dataset.enabled = String(e.enabled);
+      const dot = document.createElement('span');
+      dot.className = 'sdot' + (e.action === 'off' ? ' off' : '');
+      if (e.action !== 'off') dot.style.background = entryColor(e);
+      const text = document.createElement('div'); text.className = 'sched-text';
+      const time = document.createElement('div'); time.className = 'sched-time'; time.textContent = fmtTime(e.time);
+      const desc = document.createElement('div'); desc.className = 'sched-desc'; desc.textContent = describeEntry(e) + ' · ' + daysLabel(e.days);
+      text.append(time, desc);
+      const actions = document.createElement('div'); actions.className = 'sched-actions';
+      const sw = document.createElement('input');
+      sw.type = 'checkbox'; sw.className = 'switch'; sw.checked = e.enabled;
+      sw.setAttribute('aria-label', 'Turn the ' + fmtTime(e.time) + ' change ' + (e.enabled ? 'off' : 'on'));
+      sw.addEventListener('change', () => { e.enabled = sw.checked; saveSchedule(); renderSchedule(); });
+      const tryBtn = document.createElement('button');
+      tryBtn.className = 'btn small'; tryBtn.type = 'button'; tryBtn.textContent = 'Try';
+      tryBtn.addEventListener('click', () => applyEntry(e));
+      const del = document.createElement('button');
+      del.className = 'icon-btn'; del.type = 'button'; del.textContent = '✕';
+      del.setAttribute('aria-label', 'Remove the ' + fmtTime(e.time) + ' change');
+      del.addEventListener('click', () => { schedule = schedule.filter(o => o.id !== e.id); saveSchedule(); renderSchedule(); log('Removed the ' + fmtTime(e.time) + ' change.'); });
+      actions.append(sw, tryBtn, del);
+      li.append(dot, text, actions);
+      return li;
+    }));
+  }
+  function runEntry(e) { e.lastRun = todayStr(); saveSchedule(); applyEntry(e); log('Scheduled change: ' + describeEntry(e) + '.', false, '', true); }
+  function tickSchedule() {
+    if (!ready) return;
+    const now = new Date(), today = todayStr(now);
+    for (const e of schedule) {
+      if (!e.enabled || e.lastRun === today || !e.days.includes(now.getDay())) continue;
+      const diff = now - entryDate(e, now);
+      if (diff >= 0 && diff < 10 * 60 * 1000) runEntry(e);
+    }
+  }
+  function catchUp() {
+    const now = new Date(), today = todayStr(now);
+    const due = schedule.filter(e => e.enabled && e.days.includes(now.getDay()) && entryDate(e, now) <= now);
+    if (!due.length) return;
+    due.sort((a, b) => a.time.localeCompare(b.time));
+    const last = due[due.length - 1];
+    due.forEach(e => { e.lastRun = today; });
+    saveSchedule();
+    if (last.action === 'fx' && FX[last.fx] && FX[last.fx].timed) return;
+    applyEntry(last);
+    log('Caught up on the ' + fmtTime(last.time) + ' change: ' + describeEntry(last) + '.');
+  }
+  function buildDayPicker() {
+    els.addDays.replaceChildren(...DAY_ORDER.map(d => {
+      const lab = document.createElement('label'); lab.className = 'day';
+      const inp = document.createElement('input'); inp.type = 'checkbox'; inp.value = String(d); inp.checked = d >= 1 && d <= 5;
+      const sp = document.createElement('span'); sp.textContent = DAY_NAMES[d];
+      lab.append(inp, sp);
+      return lab;
+    }));
+    els.addFx.replaceChildren(...FX_LIST.map(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; return o; }));
+  }
+  function syncAddForm() {
+    const a = els.addAction.value;
+    els.addColorWrap.hidden = a !== 'color';
+    els.addFxWrap.hidden = a !== 'fx';
+    els.addKelvinWrap.hidden = a !== 'white';
+    els.addBriWrap.hidden = a === 'off';
+    els.addKelvinOut.textContent = els.addKelvin.value + 'K';
+    els.addBriOut.textContent = pct(+els.addBri.value);
+  }
+  function defaultAddTime() { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); els.addTime.value = String(d.getHours()).padStart(2, '0') + ':00'; }
+  els.addAction.addEventListener('change', syncAddForm);
+  els.addKelvin.addEventListener('input', syncAddForm);
+  els.addBri.addEventListener('input', syncAddForm);
+  els.addBtn.addEventListener('click', () => {
+    const time = els.addTime.value;
+    const days = [...els.addDays.querySelectorAll('input:checked')].map(i => +i.value);
+    if (!time) { showAddError('Pick a time for this change.'); return; }
+    if (!days.length) { showAddError('Pick at least one day.'); return; }
+    els.addError.hidden = true;
+    const e = { id: Date.now().toString(36), time, days, enabled: true, lastRun: null,
+      action: els.addAction.value, hex: els.addColor.value.toLowerCase(), kelvin: +els.addKelvin.value, bri: +els.addBri.value, fx: els.addFx.value };
+    if (days.includes(new Date().getDay()) && entryDate(e, new Date()) <= new Date()) e.lastRun = todayStr();
+    schedule.push(e); saveSchedule(); renderSchedule();
+    log('Added: ' + describeEntry(e) + ' at ' + fmtTime(time) + ', ' + daysLabel(days) + '.', false, '', true);
+  });
+  function showAddError(msg) { els.addError.textContent = msg; els.addError.hidden = false; }
+  els.catchUp.checked = prefs.catchUp;
+  els.catchUp.addEventListener('change', () => { prefs.catchUp = els.catchUp.checked; savePrefs(); });
+
+  // ---------- Settings ----------
+  function applyTheme() {
+    if (prefs.theme === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = prefs.theme;
+    els.themeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === prefs.theme)));
+    const dark = prefs.theme === 'dark' || (prefs.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#0f1115' : '#eceef2';
+  }
+  els.themeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { prefs.theme = b.dataset.theme; savePrefs(); applyTheme(); }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  els.haloSw.checked = prefs.halo;
+  document.body.dataset.halo = String(prefs.halo);
+  els.haloSw.addEventListener('change', () => { prefs.halo = els.haloSw.checked; savePrefs(); document.body.dataset.halo = String(prefs.halo); });
+  els.fullBri.checked = prefs.fullBri;
+  els.fullBri.addEventListener('change', () => { prefs.fullBri = els.fullBri.checked; savePrefs(); if (prefs.fullBri && light.on && !fx) setBri(FULL); });
+  els.setConnect.addEventListener('click', () => connect(false));
+  els.setDisconnect.addEventListener('click', disconnect);
+  els.setForget.addEventListener('click', forgetLight);
+
+  // Install as an app
+  let installEvt = null;
+  const isStandalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches;
+  function renderInstall() {
+    if (isStandalone()) {
+      els.installBtn.hidden = true;
+      els.installInfo.textContent = 'Iris is installed and running as an app.';
+    } else if (installEvt) {
+      els.installBtn.hidden = false; els.installBtn.disabled = false;
+      els.installInfo.textContent = '';
+    } else {
+      els.installBtn.hidden = false; els.installBtn.disabled = false;
+      els.installInfo.textContent = 'In Chrome or Edge, you can also click the install icon at the right end of the address bar.';
+    }
+  }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; renderInstall(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; log('Iris is installed. Find it in the Start menu.', false, 'ok', true); renderInstall(); });
+  els.installBtn.addEventListener('click', async () => {
+    if (!installEvt) {
+      toast('Click the install icon at the right of the address bar, or open the browser menu and choose “Install Iris”.');
+      return;
+    }
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch {}
+    installEvt = null; renderInstall();
+  });
+
+  // ---------- Dialogs ----------
+  function openDialog(d) { if (!d.open) d.showModal(); }
+  document.querySelectorAll('dialog').forEach(d => {
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); });
+  });
+  els.pairDlg.addEventListener('close', () => { if (pairAuto) pairDismissed = true; pairAuto = false; });
+  els.openPair.addEventListener('click', () => { fillPairSteps(); pairAuto = false; openDialog(els.pairDlg); });
+  els.pairRetry.addEventListener('click', async () => {
+    pairDismissed = false; pairAuto = false; els.pairDlg.close();
+    seenErrors = new Set(); wantConnected = false;
+    try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
+    ready = false;
+    await sleep(300);
+    connect(false);
+  });
+  els.openDiag.addEventListener('click', () => openDialog(els.diagDlg));
+  els.openLog.addEventListener('click', () => openDialog(els.logDlg));
 
   // ---------- Diagnostics ----------
   const CHAR_NAMES = { '0001': 'model/unknown', '0002': 'power', '0003': 'brightness', '0004': 'white temperature', '0005': 'color (xy)', '0006': 'unknown', '0007': 'combined control', '0008': 'unknown' };
   const PROPS = ['read', 'write', 'writeWithoutResponse', 'notify', 'indicate', 'authenticatedSignedWrites', 'reliableWrite'];
   const bytesHex = dv => [...new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength)].map(b => b.toString(16).padStart(2, '0')).join(' ') || '(empty)';
   const shortId = u => u.slice(9, 13);
-  function osName() {
-    const ua = navigator.userAgent;
-    if (/Android/i.test(ua)) return 'Android';
-    if (/CrOS/.test(ua)) return 'ChromeOS';
-    if (/Windows/.test(ua)) return 'Windows';
-    if (/Mac OS X|Macintosh/.test(ua)) return 'Mac';
-    if (/Linux/.test(ua)) return 'Linux';
-    return 'Unknown';
-  }
-
   async function runDiag() {
     const lines = [];
     const say = s => { lines.push(s); els.diagOut.textContent = lines.join('\n'); els.diagOut.scrollTop = els.diagOut.scrollHeight; };
     els.diagOut.hidden = false; els.diagCopy.hidden = true; els.diagBtn.disabled = true;
     const errors = [];
     let accepted = 0, refused = 0;
+    if (fx) stopEffect(false);
     const wasReady = ready;
-    ready = false; pending.clear(); // pause normal sending during the test
+    ready = false; pending.clear();
     try {
       say('Iris diagnostics ' + VERSION.name + ', ' + new Date().toLocaleString());
       say('System: ' + osName() + ' | ' + navigator.userAgent);
-      say('Web Bluetooth available: ' + !!navigator.bluetooth);
+      say('Web Bluetooth available: ' + !!navigator.bluetooth + (prefs.sim ? ' (simulated light on)' : ''));
       if (!device) { say('\nNo light chosen yet. Click “Connect your Iris” first, then run the test again.'); return; }
       say('Light: ' + (device.name || '(no name)') + ' | id ' + device.id);
       if (!device.gatt.connected) {
@@ -1094,10 +1817,8 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
       let svc;
       try { svc = await device.gatt.getPrimaryService(SVC); say('Hue light service: found'); }
       catch (e) { say('Hue light service: NOT found (' + errText(e) + ')'); errors.push(e); return; }
-
       let list = [];
-      try { list = await svc.getCharacteristics(); }
-      catch (e) { say('Could not list the controls: ' + errText(e)); errors.push(e); }
+      try { list = await svc.getCharacteristics(); } catch (e) { say('Could not list the controls: ' + errText(e)); errors.push(e); }
       say('\nControls on this light:');
       for (const c of list) {
         const id = shortId(c.uuid);
@@ -1109,18 +1830,17 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         }
         say('  ' + id + ' ' + (CHAR_NAMES[id] || 'unknown') + ' [' + props + ']' + val);
       }
-
       const power = list.find(c => c.uuid === UUID.power);
-      const methods = ['writeValueWithResponse', 'writeValueWithoutResponse', 'writeValue'];
       if (power) {
         say('\nOn/off tests. Watch the light: it should turn off, then on, for each test.');
         let n = 0;
-        for (const m of methods) {
+        for (const m of ['writeValueWithResponse', 'writeValueWithoutResponse', 'writeValue']) {
           if (typeof power[m] !== 'function') continue;
           n++;
           say('\nTest ' + n + ': ' + m);
-          if (m === 'writeValueWithoutResponse') say('  (this type never reports a refusal, so watch the light itself)');
-          try { await power[m](u8(0)); if (m !== 'writeValueWithoutResponse') accepted++; say('  OFF sent' + (m === 'writeValueWithoutResponse' ? '' : ', accepted')); }
+          const noResp = m === 'writeValueWithoutResponse';
+          if (noResp) say('  (this type never reports a refusal, so watch the light itself)');
+          try { await power[m](u8(0)); if (!noResp) accepted++; say('  OFF sent' + (noResp ? '' : ', accepted')); }
           catch (e) {
             if (e && e.name === 'NotSupportedError') { say('  this write type isn’t used by the light (normal)'); continue; }
             refused++; errors.push(e); say('  OFF refused: ' + errText(e)); continue;
@@ -1131,31 +1851,13 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
           catch (e) { refused++; errors.push(e); say('  ON refused: ' + errText(e)); }
           await sleep(1800);
         }
-      } else {
-        say('\nThis light has no on/off control in the usual place.');
-      }
-
-      const combo = list.find(c => shortId(c.uuid) === '0007');
-      if (combo) {
-        n2: {
-          say('\nTest: combined control (newer lights). Watch for off, then on.');
-          try { await writeChar(combo, new Uint8Array([0x01, 0x01, 0x00])); accepted++; say('  OFF sent, accepted'); }
-          catch (e) { refused++; errors.push(e); say('  OFF refused: ' + errText(e)); break n2; }
-          await sleep(1800);
-          try { await writeChar(combo, new Uint8Array([0x01, 0x01, 0x01])); accepted++; say('  ON sent, accepted'); }
-          catch (e) { refused++; errors.push(e); say('  ON refused: ' + errText(e)); }
-          await sleep(1200);
-        }
-      }
-
+      } else say('\nThis light has no on/off control in the usual place.');
       const bri = list.find(c => c.uuid === UUID.bri);
       if (bri) {
         say('\nTest: brightness dims to low for 2 seconds.');
         try { await writeChar(bri, u8(20)); accepted++; say('  dim sent, accepted'); await sleep(2000); await writeChar(bri, u8(light.bri)); say('  restored'); }
         catch (e) { refused++; errors.push(e); say('  refused: ' + errText(e)); }
       }
-
-      // Verdict
       say('\n---- What this means ----');
       const os = osName();
       const msgs = errors.map(e => errText(e).toLowerCase()).join(' | ');
@@ -1164,80 +1866,134 @@ input[type=time], input[type=number], select{ font:inherit; font-size:.9375rem; 
         say('The light refused the commands. That almost always means it is not paired (bonded) with this ' + (os === 'Android' ? 'phone' : 'computer') + '.');
         say('How to fix it on ' + os + ':');
         [...pairSteps(os), ...EXTRA_STEPS].forEach((t, i) => say(' ' + (i + 1) + '. ' + t));
-        showPairHelp();
       } else if (accepted) {
-        say('The light accepted every command. If it also turned off and on, the page works: try the color controls again.');
-        say('If it accepted but the light did NOT react, another phone or tablet may still control it, or the light is reset to factory state. Close the Hue app on every device, power the lamp off and on at the wall, then run the test again.');
-      } else {
-        say('No command could be sent. Reconnect and run the test again.');
-      }
-      say('\nCopy this report and send it to whoever helps you.');
+        say('The light accepted every command. If it also turned off and on, everything works.');
+        say('If it accepted but did NOT react, close the Hue app on every device, power the lamp off and on at the wall, then test again.');
+      } else say('No command could be sent. Reconnect and run the test again.');
     } catch (e) {
       say('\nThe test stopped: ' + errText(e));
     } finally {
       ready = wasReady && !!device && device.gatt.connected;
-      els.diagBtn.disabled = false;
-      els.diagCopy.hidden = false;
+      els.diagBtn.disabled = false; els.diagCopy.hidden = false;
       if (ready) readState();
     }
   }
   els.diagBtn.addEventListener('click', runDiag);
-  els.pairHide.addEventListener('click', () => { pairHidden = true; hidePairHelp(); });
-  els.pairRetry.addEventListener('click', async () => {
-    pairHidden = false; hidePairHelp();
-    seenErrors = new Set();
-    wantConnected = false;
-    try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {}
-    ready = false;
-    await sleep(300);
-    connect(false);
-  });
   els.diagCopy.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(els.diagOut.textContent); els.diagCopy.textContent = 'Copied'; }
     catch { const r = document.createRange(); r.selectNodeContents(els.diagOut); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); els.diagCopy.textContent = 'Selected, press Ctrl+C'; }
     setTimeout(() => { els.diagCopy.textContent = 'Copy the report'; }, 2500);
   });
 
-  // ---------- Controls ----------
+  // ---------- Developer mode (code: BURGER) ----------
+  let rateTimer = null, lastCount = 0;
+  function renderDev() {
+    els.devBadge.hidden = !prefs.dev;
+    els.devLocked.hidden = prefs.dev;
+    els.devTools.hidden = !prefs.dev;
+    els.simSw.checked = prefs.sim;
+    els.unsupported.hidden = !!navigator.bluetooth || prefs.sim;
+    els.connectBtn.disabled = !navigator.bluetooth && !prefs.sim;
+    els.allBtn.disabled = !navigator.bluetooth;
+  }
+  els.openDev.addEventListener('click', () => {
+    openDialog(els.devDlg); els.devErr.hidden = true; els.devCode.value = '';
+    clearInterval(rateTimer);
+    rateTimer = setInterval(() => { els.devWrites.textContent = writeCount; els.devRate.textContent = writeCount - lastCount; lastCount = writeCount; }, 1000);
+    if (!prefs.dev) setTimeout(() => els.devCode.focus(), 50);
+  });
+  els.devDlg.addEventListener('close', () => clearInterval(rateTimer));
+  function unlockDev() {
+    if (els.devCode.value.trim().toUpperCase() === 'BURGER') {
+      prefs.dev = true; savePrefs(); renderDev();
+      log('Developer mode on.', false, 'ok', true);
+    } else els.devErr.hidden = false;
+  }
+  els.devUnlock.addEventListener('click', unlockDev);
+  els.devCode.addEventListener('keydown', e => { if (e.key === 'Enter') unlockDev(); });
+  els.simSw.addEventListener('change', () => {
+    prefs.sim = els.simSw.checked; savePrefs(); renderDev();
+    disconnect(); device = null;
+    if (prefs.sim) connect(false);
+  });
+  els.devDrop.addEventListener('click', () => { try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {} });
+  els.devDemo.addEventListener('click', async () => {
+    els.devDlg.close();
+    for (const f of FX_LIST.filter(f => !f.timed)) {
+      startEffect(f.id); toast('Demo: ' + f.name);
+      await sleep(5000);
+      if (!fx || fx.id !== f.id) return;
+    }
+    stopEffect(true);
+  });
+  els.devReset.addEventListener('click', () => {
+    if (!confirm('Erase all saved colors, favorites, schedule and settings?')) return;
+    try { Object.keys(localStorage).filter(k => k.startsWith('iris:')).forEach(k => localStorage.removeItem(k)); } catch {}
+    location.reload();
+  });
+  els.devExit.addEventListener('click', () => { prefs.dev = false; prefs.sim = false; savePrefs(); renderDev(); disconnect(); device = null; });
+
+  // ---------- Lamp controls ----------
   els.orb.addEventListener('click', () => setPower(!light.on));
   els.bri.addEventListener('input', () => setBri(+els.bri.value));
-  els.colorPick.addEventListener('input', () => setColor(els.colorPick.value));
-  els.kelvin.addEventListener('input', () => setWhite(+els.kelvin.value));
-  els.tabs.forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.mode === 'white') setWhite(light.kelvin); else setColor(light.hex);
-  }));
+  els.briChips.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setBri(Math.round(+b.dataset.p / 100 * 254))));
   els.connectBtn.addEventListener('click', () => connect(false));
   els.allBtn.addEventListener('click', () => connect(true));
-  els.disconnectBtn.addEventListener('click', disconnect);
+
+  // ---------- Keyboard ----------
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    const typing = tag === 'input' || tag === 'select' || tag === 'textarea';
+    if (e.key === 'Escape' && fx) { stopEffect(true); return; }
+    if (typing) return;
+    if (e.key === ' ' && tag !== 'button') { e.preventDefault(); setPower(!light.on); }
+    else if (e.key === 'ArrowUp' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri + 25); }
+    else if (e.key === 'ArrowDown' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri - 25); }
+    else if (/^[1-6]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
+  });
+
+  // ---------- App shortcuts (taskbar jump list) ----------
+  function runLaunchAction(url) {
+    let act;
+    try { act = new URL(url, location.href).searchParams.get('do'); } catch { return; }
+    if (!act) return;
+    const run = () => {
+      if (act === 'off') setPower(false);
+      else if (act === 'on') setPower(true);
+      else if (FX[act]) startEffect(act);
+      else {
+        const sc = Object.values(SCENES).flatMap(c => c.list).find(s => s.name && s.name.toLowerCase().replace(/\s+/g, '-') === act);
+        if (sc) applyState({ on: true, ...sc, label: sc.name });
+      }
+    };
+    if (ready) run(); else { afterConnect = run; toast('Connect your Iris and it will switch right away.'); }
+    history.replaceState(null, '', location.pathname);
+  }
+  if ('launchQueue' in window) window.launchQueue.setConsumer(p => { if (p.targetURL) runLaunchAction(p.targetURL); });
 
   // ---------- Start ----------
+  els.version.textContent = VERSION.name + ' · ' + VERSION.date;
+  if (prefs.fullBri && !light.label && light.bri !== FULL) light.bri = FULL;
+  applyTheme();
+  buildPalette(); buildWhites(); buildFx(); buildScenes(); buildDayPicker();
+  renderRecents(); renderFavs();
+  defaultAddTime(); syncAddForm(); renderSchedule();
+  renderTimerChips(); renderSleepChips();
+  setStatus('off'); renderDev(); renderInstall();
+  showTab(prefs.tab);
   render();
-  renderPresets();
-  renderFavs();
-  buildDayPicker();
-  defaultAddTime();
-  syncAddForm();
-  renderSchedule();
-  renderTimerChips();
-  setStatus('off');
+  runLaunchAction(location.href);
 
-  if (!navigator.bluetooth) {
-    els.unsupported.hidden = false;
-    els.connectBtn.disabled = true;
-    els.allBtn.disabled = true;
-  } else {
-    if (navigator.bluetooth.getAvailability) {
-      navigator.bluetooth.getAvailability().then(ok => { if (!ok) log('Bluetooth looks turned off on this computer.', true); }).catch(() => {});
-    }
-    tryRestore();
+  if (navigator.bluetooth && navigator.bluetooth.getAvailability) {
+    navigator.bluetooth.getAvailability().then(ok => { if (!ok) log('Bluetooth looks turned off on this computer.', true); }).catch(() => {});
   }
+  tryRestore();
 
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
   setInterval(tickSchedule, 15000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tickSchedule(); updateTimerDisplay(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tickSchedule(); updateTimers(); } });
 })();
 </script>
 </body>

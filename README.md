@@ -1,7 +1,30 @@
-# Iris – contrôle Bluetooth pour Philips Hue Iris
+# Iris – Bluetooth control for Philips Hue Iris
 
-Une page web qui pilote ta lampe Hue Iris directement en Bluetooth, sans pont Hue.
-Couleur, blanc chaud/froid, luminosité, favoris, horaires et minuteur de concentration.
+A web app that controls your Hue Iris lamp directly over Bluetooth, with no Hue Bridge.
+Everything fits on one screen:
+
+- **Color:** color wheel, 36-color palette, color code input, recent colors and favorites.
+- **White:** warm to cool slider with Candle, Warm, Soft, Neutral, Daylight and Cool presets.
+- **Scenes:** Christmas, Everyday and Moods.
+- **Effects:** Christmas lights, Merry cycle, Candy cane, Fireplace, Snowfall, Starry night, Candlelight, Breathe, Aurora, Ocean, Rainbow, Party, Sunrise and Sunset.
+- **Timers:** focus timer that flashes the lamp, and a sleep timer that fades it out.
+- **Schedule:** colors, whites, effects or off at set times and days.
+- **Settings:** theme, page glow, full brightness, install, pairing help, diagnostics, activity, DEV.
+
+Colors and scenes always use full brightness. You can turn this off in Settings.
+
+## Install it like a Windows app
+
+1. Open https://anthodupre.github.io/HUE/ in Chrome or Edge.
+2. Go to Settings and click **Install Iris**, or click the install icon at the right of the address bar.
+3. Iris opens in its own window and appears in the Start menu. Right-click it to pin it to the taskbar.
+
+Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, Focus and Turn off.
+
+## Developer mode
+
+Settings → Help → DEV, then type the code `BURGER`. It unlocks a simulated lamp (works without
+Bluetooth), a command counter, a dropped-connection test, an effects demo and a data reset.
 
 ## Mettre le site en ligne (une seule fois)
 
