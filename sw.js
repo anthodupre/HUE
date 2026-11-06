@@ -1,5 +1,5 @@
 // Network first, cache fallback: updates arrive right away, the app still opens offline.
-const CACHE = 'iris-v2.1';
+const CACHE = 'iris-v2.2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {

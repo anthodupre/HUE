@@ -671,7 +671,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.1', date: 'Nov 5, 2026' };
+  const VERSION = { name: 'v2.2', date: 'Nov 6, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -886,7 +886,13 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
   // ---------- Connection ----------
   let device = null, chars = {}, ready = false, wantConnected = false, connecting = false;
-  let reconnectTimer = null, retry = 0, hintedOffline = false, afterConnect = null;
+  let reconnectTimer = null, retry = 0, hintedOffline = false, afterConnect = null, gen = 0;
+  class Stale extends Error {}
+  function withTimeout(promise, ms, msg) {
+    let t; return Promise.race([promise, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms); })]).finally(() => clearTimeout(t));
+  }
+  // Stop any automatic attempt so a click can take over right away.
+  function cancelAuto() { gen++; connecting = false; clearTimeout(reconnectTimer); }
 
   function setStatus(state) {
     els.status.dataset.state = state;
@@ -894,14 +900,18 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     els.status.textContent = { off: 'Not connected', busy: 'Connecting…', retry: 'Reconnecting…', on: name }[state];
     els.status.title = state === 'on' ? 'Connected to ' + name : els.status.textContent;
     const connected = state === 'on' || state === 'busy' || state === 'retry';
-    els.connBox.hidden = connected;
-    els.setConnect.hidden = connected;
+    // While Iris reconnects on its own, Connect stays available: clicking it takes over at once.
+    els.connBox.hidden = state === 'on';
+    els.connectBtn.textContent = state === 'off' ? 'Connect your Iris' : 'Connect now';
+    els.allBtn.hidden = state !== 'off';
+    els.setConnect.hidden = state === 'on';
     els.setDisconnect.hidden = !connected;
     els.setLightName.textContent = state === 'on' ? 'Connected to ' + name : device ? name + ' (not connected)' : 'No light connected';
     renderAuto();
   }
 
   async function connect(showAll) {
+    cancelAuto();
     if (prefs.sim) {
       if (device && device.gatt.connected) { try { device.gatt.disconnect(); } catch {} }
       device = makeSimDevice();
@@ -923,21 +933,40 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       wantConnected = true;
       await openGatt(true);
     } catch (e) {
-      if (e && e.name === 'NotFoundError') { log('No light selected.'); return; }
+      if (e instanceof Stale) return;
+      if (e && e.name === 'NotFoundError') {
+        log('No light selected.');
+        // Keep trying the remembered lamp in the background.
+        if (device && wantConnected && !ready) { retry = 0; setStatus('retry'); scheduleReconnect(); }
+        return;
+      }
       ready = false; setStatus('off');
       log('Couldn’t connect: ' + (e && e.message ? e.message : e) + '. See Settings → Help.', true);
     }
   }
 
-  async function openGatt(doCatchUp) {
+  async function openGatt(doCatchUp, timeoutMs = 10000) {
     if (connecting) return;
     connecting = true;
+    const my = gen, d = device;
+    const check = () => { if (my !== gen || d !== device) throw new Stale('replaced'); };
     setStatus(retry ? 'retry' : 'busy');
     try {
-      const server = await device.gatt.connect();
+      let server;
+      try { server = await withTimeout(d.gatt.connect(), timeoutMs, 'The lamp didn’t answer in time'); }
+      catch (e) {
+        // Cancel the pending attempt, unless a newer connection has taken over.
+        if (my === gen && d === device && !(e instanceof Stale)) { try { d.gatt.disconnect(); } catch {} }
+        throw e;
+      }
+      check();
       const svc = await server.getPrimaryService(SVC);
+      check();
+      // One request for all controls is faster than asking for each one.
       const found = {};
-      for (const [k, u] of Object.entries(UUID)) { try { found[k] = await svc.getCharacteristic(u); } catch {} }
+      try { const all = await svc.getCharacteristics(); for (const [k, u] of Object.entries(UUID)) { const c = all.find(c => c.uuid === u); if (c) found[k] = c; } } catch {}
+      for (const [k, u] of Object.entries(UUID)) { if (!found[k]) { try { found[k] = await svc.getCharacteristic(u); } catch {} } }
+      check();
       if (!found.power && !found.xy && !found.bri) throw new Error('This device doesn’t look like a Hue light');
       chars = found; ready = true; retry = 0; confirmedWrite = false; seenErrors = new Set(); hintedOffline = false;
       setStatus('on');
@@ -950,7 +979,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       if (afterConnect) { const f = afterConnect; afterConnect = null; f(); }
       else if (doCatchUp && prefs.catchUp) catchUp();
     } finally {
-      connecting = false;
+      if (my === gen) connecting = false;
     }
   }
 
@@ -962,14 +991,15 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   }
 
   function scheduleReconnect() {
-    const delays = [2000, 5000, 10000, 30000, 60000];
+    const delays = [1500, 3000, 6000, 15000, 30000];
     const d = delays[Math.min(retry, delays.length - 1)];
     retry++;
     clearTimeout(reconnectTimer);
+    const my = gen;
     reconnectTimer = setTimeout(async () => {
-      if (!wantConnected || !device) return;
-      try { await openGatt(false); }
-      catch { if (wantConnected) { setStatus('retry'); scheduleReconnect(); } }
+      if (!wantConnected || !device || my !== gen || ready) return;
+      try { if (retry % 2 === 0) { await waitForAdvert(device, 4000); if (my !== gen || ready) return; } await openGatt(false, 8000); }
+      catch (e) { if (!(e instanceof Stale) && wantConnected && my === gen && !ready) { setStatus('retry'); scheduleReconnect(); } }
     }, d);
   }
 
@@ -1033,17 +1063,26 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       store.set('deviceId', d.id);
       device.addEventListener('gattserverdisconnected', onDisconnect);
       wantConnected = true;
+      const my = gen;
       setStatus('busy');
       log('Reconnecting to ' + (d.name || 'your light') + '…');
-      try { await openGatt(true); }
-      catch {
-        // The light may still be waking up: wait until it advertises, then try again.
-        await waitForAdvert(d, 12000);
-        try { await openGatt(true); }
-        catch { if (wantConnected) { setStatus('retry'); scheduleReconnect(); } }
+      // Try at once, and listen for the lamp at the same time. If Chrome hears it before
+      // the first try succeeds, start a fresh connection right away instead of waiting.
+      const heard = waitForAdvert(d, 8000).then(ok => ok ? 'heard' : 'silent');
+      const first = openGatt(true, 6000).then(() => 'ok', e => e);
+      const r = await Promise.race([first, heard]);
+      if (r === 'ok' || ready || my !== gen) return;
+      if (r === 'heard') {
+        cancelAuto(); try { d.gatt.disconnect(); } catch {}
+        await openGatt(true, 8000);
+      } else {
+        const r2 = await first;
+        if (r2 === 'ok' || ready || my !== gen) return;
+        if (await heard === 'heard' && my === gen && !ready) await openGatt(true, 8000);
+        else throw r2;
       }
-    } catch {
-      if (wantConnected) { setStatus('retry'); scheduleReconnect(); }
+    } catch (e) {
+      if (!(e instanceof Stale) && wantConnected && !ready) { setStatus('retry'); scheduleReconnect(); }
     } finally { renderAuto(); }
   }
   els.autoConnect.addEventListener('change', () => { prefs.autoConnect = els.autoConnect.checked; savePrefs(); renderAuto(); });
@@ -2139,7 +2178,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     else if (e.key === 'ArrowUp' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri + 25); }
     else if (e.key === 'ArrowDown' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri - 25); }
     else if (/^[1-6]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
-    else if ((e.key === 'c' || e.key === 'C') && !ready && !connecting) connect(false);
+    else if ((e.key === 'c' || e.key === 'C') && !ready) connect(false);
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------
@@ -2185,9 +2224,9 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     tickSchedule(); updateTimers();
-    if (wantConnected && !ready && !connecting && device) { retry = 0; clearTimeout(reconnectTimer); openGatt(false).catch(() => { if (wantConnected) scheduleReconnect(); }); }
+    if (wantConnected && !ready && !connecting && device) { retry = 0; scheduleReconnect(); }
   });
-  window.addEventListener('online', () => { if (wantConnected && !ready && !connecting && device) openGatt(false).catch(() => {}); });
+  window.addEventListener('online', () => { if (wantConnected && !ready && !connecting && device) { retry = 0; scheduleReconnect(); } });
 })();
 </script>
 </body>
