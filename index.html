@@ -119,6 +119,12 @@ input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%;
 .steps li{ margin-bottom:.35rem; }
 .steps code{ font:.75rem ui-monospace, Consolas, monospace; background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:0 .25rem; word-break:break-all; color:var(--ink); }
 
+.legend{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.35rem .8rem; margin-top:.5rem; font-size:.8125rem; color:var(--muted); }
+.legend span{ display:flex; align-items:center; gap:.4rem; }
+.legend i{ width:14px; height:14px; border-radius:50%; flex:none; box-shadow:0 0 0 1px rgba(0,0,0,.12); }
+.legend .bar{ grid-column:1 / -1; width:100%; height:12px; border-radius:999px; }
+.legend .ends{ grid-column:1 / -1; display:flex; justify-content:space-between; }
+
 /* Mini player (always-on-top window) */
 body.pip{ overflow:hidden; background:var(--bg); }
 .mini{ height:100vh; display:grid; grid-template-columns:auto minmax(0,1fr); gap:14px; align-items:center; padding:12px 16px; }
@@ -572,11 +578,11 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
           <div class="card">
             <h2>Away from desk</h2>
-            <p class="sub">When you leave or lock your computer, the lamp fades out. It fades back when you return.</p>
-            <div class="set-row" style="margin-top:.4rem"><span>Turn on</span><input type="checkbox" class="switch" id="awaySw" aria-label="Away from desk"></div>
-            <div class="set-row"><span>When idle for</span>
-              <select id="awayMin"><option value="1">1 minute</option><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select>
-            </div>
+            <p class="sub">The lamp fades out when you step away, and fades back when you return.</p>
+            <div class="set-row" style="margin-top:.4rem"><span>When I lock my computer<br><small class="sub">Windows + L</small></span><input type="checkbox" class="switch" id="awayLockSw" aria-label="Fade out when I lock my computer"></div>
+            <div class="set-row"><span>When I don’t touch the mouse or keyboard for
+              <select id="awayMin" aria-label="Idle time"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select></span>
+              <input type="checkbox" class="switch" id="awayIdleSw" aria-label="Fade out when I’m idle"></div>
             <div class="set-row"><span>Then</span>
               <select id="awayDo"><option value="off">turn the lamp off</option><option value="dim">dim it to 10%</option></select>
             </div>
@@ -595,6 +601,10 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
               <select id="wxStyle"><option value="sky">the sky</option><option value="temp">the temperature</option></select>
             </div>
             <p class="sub" id="wxNow" style="margin:.3rem 0 0"></p>
+            <details class="tips" style="margin-top:.5rem">
+              <summary>What the colors mean</summary>
+              <div class="legend" id="wxLegend"></div>
+            </details>
           </div>
 
           <div class="card">
@@ -724,7 +734,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.3', date: 'Nov 6, 2026' };
+  const VERSION = { name: 'v2.4', date: 'Nov 6, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -754,7 +764,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 5, awayDo: 'off', loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -2128,8 +2138,24 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     }
     renderWeather(); return wx;
   }
+  function renderLegend() {
+    const L = els.wxLegend; L.replaceChildren();
+    const item = (c, t) => { const sp = document.createElement('span'); const i = document.createElement('i'); i.style.background = c; sp.append(i, document.createTextNode(t)); L.append(sp); };
+    if (prefs.wxStyle === 'temp') {
+      const bar = document.createElement('i'); bar.className = 'bar';
+      bar.style.background = 'linear-gradient(90deg,' + TEMP_STOPS.map(([t, c]) => c + ' ' + Math.round((t + 20) / 58 * 100) + '%').join(',') + ')';
+      const ends = document.createElement('span'); ends.className = 'ends'; ends.innerHTML = '<span>−20° and colder</span><span>38° and hotter</span>';
+      L.append(bar, ends);
+      item('#2a3bff', 'Very cold, −20°'); item('#3d8bff', 'Freezing, −5°'); item('#7fd8ff', 'Chilly, 5°'); item('#a8ffcf', 'Cool, 12°');
+      item('#fff1a0', 'Mild, 18°'); item('#ffb347', 'Warm, 24°'); item('#ff5a1f', 'Hot, 30°'); item('#ff1a1a', 'Very hot, 38°');
+    } else {
+      for (const w of WMO) { item(w[2], w[1][0].toUpperCase() + w[1].slice(1)); }
+      item('linear-gradient(135deg,#1d2fbf,#5d6fd6)', 'Deeper blues at night');
+    }
+  }
   function renderWeather() {
     els.wxStyle.value = prefs.wxStyle;
+    renderLegend();
     if (!prefs.loc) { els.wxNow.textContent = 'Type your city and click Find.'; return; }
     els.wxCity.placeholder = prefs.loc.name;
     els.wxNow.textContent = wx && wx.place === prefs.loc.name ? 'Now: ' + weatherText(wx) + '.' : 'Location: ' + prefs.loc.name + '.';
@@ -2158,31 +2184,40 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       await fetchWeather(true); toast('Weather set to your location.');
     }, () => { els.wxNow.textContent = 'Location wasn’t shared. Type your city instead.'; }, { timeout: 15000 });
   });
-  els.wxStyle.addEventListener('change', () => { prefs.wxStyle = els.wxStyle.value; savePrefs(); if (fx && fx.id === 'weather' && wx) paint({ hex: weatherColor(wx) }, fadeMs()); });
+  els.wxStyle.addEventListener('change', () => { prefs.wxStyle = els.wxStyle.value; savePrefs(); renderLegend(); if (fx && fx.id === 'weather' && wx) paint({ hex: weatherColor(wx) }, fadeMs()); });
 
   // ---------- Away from desk (Idle Detection) ----------
   let idle = null, awayState = null;
   const hasIdle = () => 'IdleDetector' in window;
+  // Locking and being idle are separate: lock alone keeps the lamp on during paperwork.
+  if (prefs.awayLock == null) prefs.awayLock = !!prefs.away;
+  const awayOn = () => prefs.awayLock || prefs.awayIdle;
   function renderAway(msg) {
-    els.awaySw.checked = prefs.away;
+    els.awayLockSw.checked = prefs.awayLock;
+    els.awayIdleSw.checked = prefs.awayIdle;
+    if (![...els.awayMin.options].some(o => +o.value === prefs.awayMin)) prefs.awayMin = 15;
     els.awayMin.value = String(prefs.awayMin);
     els.awayDo.value = prefs.awayDo;
+    const what = prefs.awayLock && prefs.awayIdle ? 'when you lock your computer, or after ' + prefs.awayMin + ' min without the mouse or keyboard'
+      : prefs.awayLock ? 'only when you lock your computer. Paperwork at your desk keeps it on'
+      : 'after ' + prefs.awayMin + ' min without the mouse or keyboard';
     els.awayInfo.textContent = msg || (!hasIdle() ? 'This browser can’t tell when you’re away. Use Chrome or Edge.'
-      : !prefs.away ? 'Off.' : awayState ? 'You’re away. The lamp comes back when you return.'
-      : idle ? 'On. Locking your computer also counts as away.' : 'Starting…');
+      : !awayOn() ? 'Off.' : awayState ? 'You’re away. The lamp comes back when you return.'
+      : idle ? 'On: the lamp fades ' + what + '.' : 'Starting…');
   }
   async function startIdle(fromClick) {
     stopIdle();
-    if (!prefs.away || !hasIdle()) { renderAway(); return; }
+    if (!awayOn() || !hasIdle()) { renderAway(); return; }
     try {
       let state = 'prompt';
       try { state = (await navigator.permissions.query({ name: 'idle-detection' })).state; } catch {}
       if (state !== 'granted') {
-        if (!fromClick) { renderAway('Click the switch off and on again to allow Iris to notice when you’re away.'); return; }
-        if (await IdleDetector.requestPermission() !== 'granted') { prefs.away = false; savePrefs(); renderAway('Permission refused, so Away from desk stays off.'); return; }
+        if (!fromClick) { renderAway('Click a switch off and on again to allow Iris to notice when you’re away.'); return; }
+        if (await IdleDetector.requestPermission() !== 'granted') { prefs.awayLock = prefs.awayIdle = false; savePrefs(); renderAway('Permission refused, so Away from desk stays off.'); return; }
       }
       const ctl = new AbortController(), det = new IdleDetector();
       det.addEventListener('change', () => onIdleChange(det));
+      // The detector always reports the lock state; the idle time only matters when that switch is on.
       await det.start({ threshold: Math.max(1, prefs.awayMin) * 60000, signal: ctl.signal });
       idle = { ctl, det };
       renderAway();
@@ -2190,7 +2225,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   }
   function stopIdle() { if (idle) { try { idle.ctl.abort(); } catch {} idle = null; } }
   async function onIdleChange(det) {
-    const away = det.userState === 'idle' || det.screenState === 'locked';
+    const away = (prefs.awayIdle && det.userState === 'idle') || (prefs.awayLock && det.screenState === 'locked');
     if (away && !awayState && light.on) {
       awayState = { fxId: fx ? fx.id : null, state: { ...light } };
       log('You stepped away. Fading the lamp ' + (prefs.awayDo === 'dim' ? 'down.' : 'out.'));
@@ -2211,8 +2246,14 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       renderAway();
     }
   }
-  els.awaySw.addEventListener('change', () => { prefs.away = els.awaySw.checked; savePrefs(); if (prefs.away) startIdle(true); else { stopIdle(); renderAway(); } });
-  els.awayMin.addEventListener('change', () => { prefs.awayMin = +els.awayMin.value; savePrefs(); if (prefs.away) startIdle(true); });
+  function awayChanged() {
+    savePrefs();
+    if (!awayOn()) { stopIdle(); if (awayState && idle === null) onIdleChange({ userState: 'active', screenState: 'unlocked' }); renderAway(); return; }
+    if (idle) { onIdleChange(idle.det); renderAway(); } else startIdle(true);
+  }
+  els.awayLockSw.addEventListener('change', () => { prefs.awayLock = els.awayLockSw.checked; awayChanged(); });
+  els.awayIdleSw.addEventListener('change', () => { prefs.awayIdle = els.awayIdleSw.checked; awayChanged(); });
+  els.awayMin.addEventListener('change', () => { prefs.awayMin = +els.awayMin.value; savePrefs(); if (awayOn()) startIdle(true); else renderAway(); });
   els.awayDo.addEventListener('change', () => { prefs.awayDo = els.awayDo.value; savePrefs(); });
 
   // ---------- Mini player (Document Picture-in-Picture) ----------
@@ -2515,7 +2556,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   renderTimerChips(); renderSleepChips();
   setStatus('off'); renderDev(); renderInstall();
   els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway();
-  if (prefs.away) startIdle(false);
+  if (awayOn()) startIdle(false);
   if (prefs.loc && (!wx || Date.now() - wx.at > 15 * 60000)) fetchWeather(true);
   showTab(prefs.tab);
   render();

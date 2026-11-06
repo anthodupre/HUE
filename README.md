@@ -36,8 +36,10 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
   evening and bright cool white around midday.
 - **Weather:** an effect that colors the lamp with the sky or the temperature where you are.
   Set your city in Settings → Weather. Data comes from Open-Meteo, free and with no account.
-- **Away from desk:** when you leave or lock the computer, the lamp fades out, then fades back
-  when you return. Turn it on in Settings → Away from desk.
+- **Away from desk:** two separate switches in Settings → Away from desk. One fades the lamp out
+  when you lock the computer (Windows + L). The other fades it after a set time without the mouse
+  or keyboard. It fades back when you return.
+- **Weather colors:** Settings → Weather → What the colors mean shows the legend.
 - **Mini player:** a small always-on-top window with power, brightness and favorites. Open it with
   the button next to the status, or press M. Turn the button off in Settings → App.
 - **Start with Windows:** Settings → App → Start Iris with Windows shows the steps.
