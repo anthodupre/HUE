@@ -30,6 +30,19 @@ setting for this, and Settings → Light → Turn on automatic reconnect shows h
 
 Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, Focus and Turn off.
 
+## Office features
+
+- **Follow the day:** an effect that shifts the white with the clock, warm in the morning and
+  evening and bright cool white around midday.
+- **Weather:** an effect that colors the lamp with the sky or the temperature where you are.
+  Set your city in Settings → Weather. Data comes from Open-Meteo, free and with no account.
+- **Away from desk:** when you leave or lock the computer, the lamp fades out, then fades back
+  when you return. Turn it on in Settings → Away from desk.
+- **Mini player:** a small always-on-top window with power, brightness and favorites. Open it with
+  the button next to the status, or press M. Turn the button off in Settings → App.
+- **Start with Windows:** Settings → App → Start Iris with Windows shows the steps.
+- Effects that were running when you closed Iris start again when it reconnects.
+
 ## Developer mode
 
 Settings → Help → DEV, then type the code `BURGER`. It unlocks a simulated lamp (works without

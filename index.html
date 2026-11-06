@@ -112,6 +112,23 @@ input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%;
 .conn{ display:flex; flex-direction:column; align-items:center; gap:.35rem; }
 .notice{ background:var(--card); border:1px solid var(--line); border-left:3px solid var(--danger); padding:.6rem .8rem; border-radius:var(--r-s); font-size:.8125rem; margin:0; }
 
+.brand-right{ display:flex; align-items:center; gap:.4rem; margin-top:.3rem; min-width:0; }
+.brand-right .status{ margin-top:0; }
+.brand-right .icon-btn{ width:30px; height:30px; }
+.steps{ margin:.5rem 0 0; padding-left:1.15rem; font-size:.8125rem; color:var(--muted); }
+.steps li{ margin-bottom:.35rem; }
+.steps code{ font:.75rem ui-monospace, Consolas, monospace; background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:0 .25rem; word-break:break-all; color:var(--ink); }
+
+/* Mini player (always-on-top window) */
+body.pip{ overflow:hidden; background:var(--bg); }
+.mini{ height:100vh; display:grid; grid-template-columns:auto minmax(0,1fr); gap:14px; align-items:center; padding:12px 16px; }
+.mini .orb{ width:clamp(56px, 32vh, 92px); }
+.mini-main{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.mini-top{ display:flex; align-items:center; gap:8px; justify-content:space-between; min-width:0; }
+.mini-top b{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.9375rem; }
+.mini-dots{ display:flex; gap:7px; flex-wrap:wrap; }
+.mini-dots .dot{ width:26px; height:26px; flex:none; }
+
 /* Tabs */
 .tabs{ display:flex; gap:.25rem; padding:4px; border-radius:999px; background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow); align-self:flex-start; max-width:100%; overflow-x:auto; scrollbar-width:none; }
 .tab{ display:flex; align-items:center; gap:.45rem; border:0; background:transparent; color:var(--muted); padding:.5rem .95rem; border-radius:999px; cursor:pointer; font-weight:600; font-size:.875rem; white-space:nowrap; }
@@ -313,7 +330,10 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
         <h1>Iris</h1>
         <p class="version"><span id="version"></span><span id="devBadge" class="dev-badge" hidden>DEV</span></p>
       </div>
-      <span id="status" class="status" data-state="off" role="status">Not connected</span>
+      <div class="brand-right">
+        <span id="status" class="status" data-state="off" role="status">Not connected</span>
+        <button id="miniBtn" class="icon-btn" title="Mini player (M)" aria-label="Open the mini player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/></svg></button>
+      </div>
     </header>
 
     <div class="orb-wrap"><button id="orb" class="orb" aria-pressed="true" aria-label="Turn the light off"></button></div>
@@ -409,7 +429,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
       <!-- EFFECTS -->
       <section class="pane" id="pane-effects" role="tabpanel" aria-label="Effects" hidden>
-        <p class="sub" style="margin:0 0 .6rem">Effects keep changing the light on their own. They run while Iris is open.</p>
+        <p class="sub" style="margin:0 0 .6rem">Effects keep changing the light on their own while Iris is open, and pick up again when it reopens.</p>
         <div class="pane-top">
           <div class="fx-bar">
             <label>Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
@@ -538,11 +558,43 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
           <div class="card">
             <h2>App</h2>
-            <p class="sub">Install Iris as an app on this computer. It opens in its own window, with an icon in the Start menu and taskbar.</p>
-            <div class="row-btns">
+            <div class="row-btns" style="margin-top:.6rem">
               <button id="installBtn" class="btn primary small">Install Iris</button>
             </div>
-            <p class="install-steps" id="installInfo" style="margin:.6rem 0 0"></p>
+            <p class="install-steps" id="installInfo" style="margin:.5rem 0 0"></p>
+            <details class="tips" style="margin-top:.6rem">
+              <summary>Start Iris with Windows</summary>
+              <ol class="steps" id="startSteps"></ol>
+            </details>
+            <div class="set-row" style="margin-top:.4rem"><span>Mini player button</span><input type="checkbox" class="switch" id="miniSw" checked aria-label="Show the mini player button"></div>
+            <p class="sub" id="miniInfo" style="margin:0">A small window that stays on top of your other apps, with power, brightness and your favorites.</p>
+          </div>
+
+          <div class="card">
+            <h2>Away from desk</h2>
+            <p class="sub">When you leave or lock your computer, the lamp fades out. It fades back when you return.</p>
+            <div class="set-row" style="margin-top:.4rem"><span>Turn on</span><input type="checkbox" class="switch" id="awaySw" aria-label="Away from desk"></div>
+            <div class="set-row"><span>When idle for</span>
+              <select id="awayMin"><option value="1">1 minute</option><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option></select>
+            </div>
+            <div class="set-row"><span>Then</span>
+              <select id="awayDo"><option value="off">turn the lamp off</option><option value="dim">dim it to 10%</option></select>
+            </div>
+            <p class="sub" id="awayInfo" style="margin:.3rem 0 0"></p>
+          </div>
+
+          <div class="card">
+            <h2>Weather</h2>
+            <p class="sub">For the Weather effect.</p>
+            <div class="hex-row" style="width:100%; margin-top:.6rem">
+              <input type="text" id="wxCity" placeholder="Your city" aria-label="City" autocomplete="off">
+              <button id="wxFind" class="btn small">Find</button>
+            </div>
+            <button id="wxHere" class="btn link" style="margin-top:.3rem">Use my location instead</button>
+            <div class="set-row" style="margin-top:.3rem"><span>The lamp shows</span>
+              <select id="wxStyle"><option value="sky">the sky</option><option value="temp">the temperature</option></select>
+            </div>
+            <p class="sub" id="wxNow" style="margin:.3rem 0 0"></p>
           </div>
 
           <div class="card">
@@ -553,16 +605,6 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
             <div class="set-row"><span>Glow the page in the lamp’s color</span><input type="checkbox" class="switch" id="haloSw" checked aria-label="Glow the page"></div>
           </div>
 
-          <div class="card">
-            <h2>Keyboard</h2>
-            <dl class="keys" style="margin-top:.6rem">
-              <dt><kbd>Space</kbd></dt><dd>Turn the light on or off (fades in)</dd>
-              <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Brighter or dimmer</dd>
-              <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch section</dd>
-              <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
-              <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
-            </dl>
-          </div>
 
           <div class="card">
             <h2>Help</h2>
@@ -573,6 +615,17 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
               <button id="openDev" class="btn small">DEV</button>
             </div>
             <details class="tips" style="margin-top:.8rem">
+              <summary>Keyboard shortcuts</summary>
+              <dl class="keys" style="margin-top:.6rem">
+                <dt><kbd>Space</kbd></dt><dd>Turn the light on or off (fades in)</dd>
+                <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Brighter or dimmer</dd>
+                <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch section</dd>
+                <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
+                <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
+                <dt><kbd>M</kbd></dt><dd>Open the mini player</dd>
+              </dl>
+            </details>
+            <details class="tips" style="margin-top:.5rem">
               <summary>Trouble connecting?</summary>
               <ul>
                 <li>Use Chrome or Edge, with Bluetooth turned on.</li>
@@ -671,7 +724,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.2', date: 'Nov 6, 2026' };
+  const VERSION = { name: 'v2.3', date: 'Nov 6, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -701,7 +754,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 5, awayDo: 'off', loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -977,7 +1030,10 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''), false, 'ok', true);
       await readState();
       if (afterConnect) { const f = afterConnect; afterConnect = null; f(); }
-      else if (doCatchUp && prefs.catchUp) catchUp();
+      else {
+        if (!fx && light.on && light.fx && FX[light.fx] && !FX[light.fx].timed) { log('Resuming ' + FX[light.fx].name + '.'); startEffect(light.fx, { keepBri: true, quiet: true }); }
+        if (doCatchUp && prefs.catchUp) catchUp();
+      }
     } finally {
       if (my === gen) connecting = false;
     }
@@ -1283,7 +1339,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
 
   // ---------- Render ----------
   function render(ms) {
-    root.setProperty('--fade', (ms != null ? ms : 150) + 'ms');
+    if (ms != null || !fx) root.setProperty('--fade', (ms != null ? ms : 150) + 'ms');
     const view = fx && fxView ? fxView : { hex: displayHex(), bri: light.bri };
     root.setProperty('--lamp', view.hex);
     root.setProperty('--glow', (view.bri / 254).toFixed(3));
@@ -1300,6 +1356,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     els.nowDot.style.setProperty('--c', fx ? 'linear-gradient(135deg,' + fx.def.colors.join(',') + ')' : displayHex());
     els.nowDot.style.background = fx ? 'linear-gradient(135deg,' + fx.def.colors.join(',') + ')' : displayHex();
     els.nowStop.hidden = !fx;
+    if (awayState) { els.nowK.textContent = 'Away'; }
+    renderMini();
     els.fxStop.disabled = !fx;
 
     // Color pane
@@ -1434,6 +1492,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   }
   const favLabel = f => f.label || (f.mode === 'white' ? f.kelvin + 'K white' : f.hex.toUpperCase());
   function renderFavs() {
+    if (typeof buildMiniDots === 'function') buildMiniDots();
     els.favEmpty.hidden = favorites.length > 0;
     els.favs.replaceChildren(...favorites.map(f => {
       const wrap = document.createElement('div'); wrap.className = 'fav';
@@ -1491,7 +1550,26 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     if (el >= holdS + glideS) { s.from = s.to; s.to = next(s.from); s.t = t; return s.from; }
     return el <= holdS ? s.from : mixHex(s.from, s.to, ease((el - holdS) / glideS));
   }
+  // Follow the day: warm in the early morning, bright cool white around midday, warm again at night.
+  const DAY_CURVE = [[0, 2200], [360, 2400], [480, 3800], [600, 5000], [720, 5500], [840, 5200], [1020, 4000], [1140, 3000], [1260, 2500], [1440, 2200]];
+  function dayKelvin(d = new Date()) {
+    const m = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+    for (let i = 1; i < DAY_CURVE.length; i++) {
+      const [m1, k1] = DAY_CURVE[i];
+      if (m <= m1) { const [m0, k0] = DAY_CURVE[i - 1]; return Math.round((k0 + (k1 - k0) * (m - m0) / (m1 - m0)) / 50) * 50; }
+    }
+    return 2200;
+  }
   const FX_LIST = [
+    { id: 'daylight', name: 'Follow the day', cat: 'All day', colors: [kelvinToHex(2400), kelvinToHex(5500), kelvinToHex(2200)], ms: 30000, steady: true,
+      frame: () => { const k = dayKelvin(); return { kelvin: k, note: k + 'K · ' + (k < dayKelvin(new Date(Date.now() + 3600e3)) ? 'turning whiter' : k > dayKelvin(new Date(Date.now() + 3600e3)) ? 'turning warmer' : 'steady') }; } },
+    { id: 'weather', name: 'Weather', cat: 'All day', colors: ['#ffc04d', '#cfe3ff', '#1f7bff'], ms: 60000, steady: true,
+      frame: (t, s, k, c) => {
+        if (!prefs.loc) return { hex: c.startHex, note: 'Set your city in Settings', hold: 4000 };
+        if (!s.asked || (wx && Date.now() - wx.at > 15 * 60000 && !s.loading)) { s.asked = true; s.loading = true; fetchWeather(!!wx).finally(() => { s.loading = false; }); }
+        if (!wx || wx.place !== prefs.loc.name) return { hex: c.startHex, note: 'Getting the weather…', hold: 1500 };
+        return { hex: weatherColor(wx), note: weatherText(wx) };
+      } },
     { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 200,
       frame: (t, s, k) => ({ hex: drift(s, t * k, prev => pick([RED, GREEN, GOLD, RED, GREEN, XBLUE].filter(c => c !== prev)), 2.5, 1.5) }) },
     { id: 'christmas', name: 'Merry cycle', cat: 'Christmas', colors: [RED, GREEN, GOLD, WARM], ms: 220,
@@ -1536,13 +1614,23 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   const speedMul = () => SPEEDS[clamp(prefs.fxSpeed2, 1, 5) - 1];
 
   let fx = null, fxView = null;
-  function paint(hex, f = 1, abs = false) {
-    const bri = clamp(Math.round(abs ? f * 254 : light.bri * f), 1, 254);
-    fxView = { hex, bri };
-    root.setProperty('--lamp', hex);
-    root.setProperty('--glow', (bri / 254).toFixed(3));
-    root.setProperty('--fade', '300ms');
-    if (ready) { outXY(hexToXY(hex)); outBri(bri); }
+  function frameOut(o) {
+    const hex = o.kelvin ? kelvinToHex(o.kelvin) : o.hex;
+    const bri = clamp(Math.round(o.abs ? (o.f ?? 1) * 254 : light.bri * (o.f ?? 1)), 1, 254);
+    return { hex, bri, xy: o.kelvin ? kelvinToXY(o.kelvin) : hexToXY(hex), ct: o.kelvin || null };
+  }
+  function paint(o, ms = 0) {
+    const v = frameOut(o);
+    fxView = { hex: v.hex, bri: v.bri };
+    root.setProperty('--fade', (ms || 300) + 'ms');
+    root.setProperty('--lamp', v.hex);
+    root.setProperty('--glow', (v.bri / 254).toFixed(3));
+    renderMini();
+    if (!ready) return Promise.resolve();
+    if (ms) return fadeSend(v.xy, v.bri, v.ct, ms);
+    if (v.ct) outCt(v.ct); else outXY(v.xy);
+    outBri(v.bri);
+    return Promise.resolve();
   }
   async function startEffect(id, opts = {}) {
     const def = FX[id]; if (!def) return;
@@ -1550,44 +1638,51 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     const token = {};
     const durMin = opts.dur != null ? opts.dur : prefs.fxDur;
     fx = { id, def, token, t0: performance.now(), dur: Math.max(5, durMin * 60), startHex: displayHex(), startBri: light.bri, prev: { ...light } };
-    if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; saveLight(); }
-    if (!light.on) { light.on = true; saveLight(); send('power', enc.power(true)); }
+    if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; }
+    light.fx = def.timed ? null : id;
+    if (!light.on) { light.on = true; send('power', enc.power(true)); }
+    saveLight();
     render();
-    log('Effect started: ' + def.name + '.');
+    if (!opts.quiet) log('Effect started: ' + def.name + '.');
     const st = {};
+    const showNote = (o, t) => {
+      const note = def.timed ? fmtMS((fx.dur - t) * 1000) + ' left' : o && o.note;
+      els.nowExtra.hidden = !note; els.nowExtra.textContent = note || '';
+      renderMini();
+    };
     // Glide into the effect's first color instead of jumping to it.
-    if (!def.timed && ready && fadeMs()) {
+    if (!def.timed && fadeMs()) {
       const first = def.frame(0, st, speedMul(), fx);
       if (first && !first.done) {
-        const bri = clamp(Math.round(first.abs ? (first.f ?? 1) * 254 : light.bri * (first.f ?? 1)), 1, 254);
         const ms = Math.min(fadeMs(), 4000);
-        fxView = { hex: first.hex, bri }; render(ms);
-        await fadeSend(hexToXY(first.hex), bri, null, ms);
+        render(ms); showNote(first, 0);
+        await paint(first, ms);
         if (!fx || fx.token !== token) return;
         fx.t0 = performance.now();
       }
     }
     while (fx && fx.token === token) {
       const t = (performance.now() - fx.t0) / 1000;
-      const out = def.frame(t, st, speedMul(), fx);
-      if (!out || out.done) {
-        fx = null; fxView = null;
+      const o = def.frame(t, st, speedMul(), fx);
+      if (!o || o.done) {
+        fx = null; fxView = null; light.fx = null; saveLight();
+        els.nowExtra.hidden = true;
         log('Effect finished: ' + def.name + '.');
         if (def.end) def.end(); else render();
         break;
       }
-      paint(out.hex, out.f ?? 1, out.abs);
-      els.nowExtra.hidden = !def.timed;
-      if (def.timed) els.nowExtra.textContent = fmtMS((fx.dur - t) * 1000) + ' left';
+      showNote(o, t);
+      await paint(o, def.steady ? fadeMs() : 0);
       await whenIdle();
       if (!fx || fx.token !== token) break;
-      await sleep(Math.max(110, (out.hold ?? def.ms) / (def.timed ? 1 : speedMul())));
+      const wait = o.hold ?? def.ms;
+      await sleep(def.steady || def.timed ? wait : Math.max(110, wait / speedMul()));
     }
   }
   function stopEffect(restore) {
     if (!fx) return;
     const prev = fx.prev;
-    fx = null; fxView = null;
+    fx = null; fxView = null; light.fx = null; saveLight();
     els.nowExtra.hidden = true;
     pending.delete('xy'); pending.delete('bri');
     if (restore) applyState({ ...prev, on: true }, true);
@@ -1600,7 +1695,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     sw.style.setProperty('--g', 'linear-gradient(90deg,' + [...def.colors, def.colors[0]].join(',') + ')');
     const n = document.createElement('b'); n.textContent = label || def.name;
     const sm = document.createElement('small');
-    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : 'Animated';
+    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : def.steady ? 'Live' : 'Animated';
     const cat = document.createElement('span'); cat.textContent = extra || def.cat;
     sm.append(tg, cat);
     b.append(sw, n, sm);
@@ -1887,7 +1982,11 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       return li;
     }));
   }
-  function runEntry(e) { e.lastRun = todayStr(); saveSchedule(); applyEntry(e); log('Scheduled change: ' + describeEntry(e) + '.', false, '', true); }
+  function runEntry(e) {
+    e.lastRun = todayStr(); saveSchedule();
+    if (awayState) { awayState.entry = e; log('Scheduled change saved for when you’re back: ' + describeEntry(e) + '.'); return; }
+    applyEntry(e); log('Scheduled change: ' + describeEntry(e) + '.', false, '', true);
+  }
   function tickSchedule() {
     if (!ready) return;
     const now = new Date(), today = todayStr(now);
@@ -1996,6 +2095,211 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     try { await installEvt.userChoice; } catch {}
     installEvt = null; renderInstall();
   });
+
+  // ---------- Weather (Open-Meteo, free, no account) ----------
+  let wx = store.get('wx', null);
+  const WMO = [
+    [[0], 'clear', '#ffc04d', '#1d2fbf'], [[1, 2], 'partly cloudy', '#ffd98a', '#3b4cff'], [[3], 'cloudy', '#d6e6ff', '#5d6fd6'],
+    [[45, 48], 'foggy', kelvinToHex(6500), '#8fa3c7'], [[51, 53, 55, 56, 57], 'drizzle', '#4aa8ff', '#2a5bff'],
+    [[61, 63, 65, 66, 67, 80, 81, 82], 'rain', '#1f7bff', '#1a3dff'], [[71, 73, 75, 77, 85, 86], 'snow', '#bfe9ff', '#9fd0ff'],
+    [[95, 96, 99], 'thunderstorm', '#7a2cff', '#5a1fd6']
+  ];
+  const wmo = code => WMO.find(w => w[0].includes(code)) || WMO[2];
+  const TEMP_STOPS = [[-20, '#2a3bff'], [-5, '#3d8bff'], [5, '#7fd8ff'], [12, '#a8ffcf'], [18, '#fff1a0'], [24, '#ffb347'], [30, '#ff5a1f'], [38, '#ff1a1a']];
+  function tempColor(t) {
+    if (t <= TEMP_STOPS[0][0]) return TEMP_STOPS[0][1];
+    for (let i = 1; i < TEMP_STOPS.length; i++) if (t <= TEMP_STOPS[i][0]) { const [a, ca] = TEMP_STOPS[i - 1], [b, cb] = TEMP_STOPS[i]; return mixHex(ca, cb, (t - a) / (b - a)); }
+    return TEMP_STOPS[TEMP_STOPS.length - 1][1];
+  }
+  function weatherColor(w) { if (prefs.wxStyle === 'temp') return tempColor(w.temp); const c = wmo(w.code); return w.isDay ? c[2] : c[3]; }
+  const weatherText = w => Math.round(w.temp) + '° ' + wmo(w.code)[1] + ' in ' + w.place;
+  async function fetchWeather(force) {
+    const loc = prefs.loc; if (!loc) return null;
+    if (!force && wx && wx.place === loc.name && Date.now() - wx.at < 15 * 60000) { renderWeather(); return wx; }
+    try {
+      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon + '&current=temperature_2m,weather_code,is_day&timezone=auto');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      wx = { temp: j.current.temperature_2m, code: j.current.weather_code, isDay: j.current.is_day === 1, at: Date.now(), place: loc.name };
+      store.set('wx', wx);
+    } catch (e) {
+      els.wxNow.textContent = 'Couldn’t get the weather right now. Iris tries again in a few minutes.';
+      return wx;
+    }
+    renderWeather(); return wx;
+  }
+  function renderWeather() {
+    els.wxStyle.value = prefs.wxStyle;
+    if (!prefs.loc) { els.wxNow.textContent = 'Type your city and click Find.'; return; }
+    els.wxCity.placeholder = prefs.loc.name;
+    els.wxNow.textContent = wx && wx.place === prefs.loc.name ? 'Now: ' + weatherText(wx) + '.' : 'Location: ' + prefs.loc.name + '.';
+  }
+  async function findCity() {
+    const q = els.wxCity.value.trim(); if (!q) { toast('Type your city first.'); return; }
+    els.wxNow.textContent = 'Looking for ' + q + '…';
+    try {
+      const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(q));
+      const j = await r.json();
+      const c = j.results && j.results[0];
+      if (!c) { els.wxNow.textContent = 'No place called “' + q + '” found. Try another spelling.'; return; }
+      prefs.loc = { name: c.name + (c.admin1 ? ', ' + c.admin1 : ''), lat: c.latitude, lon: c.longitude }; savePrefs();
+      els.wxCity.value = '';
+      await fetchWeather(true);
+      toast('Weather set to ' + prefs.loc.name + '.');
+    } catch { els.wxNow.textContent = 'Couldn’t search right now. Check your internet connection.'; }
+  }
+  els.wxFind.addEventListener('click', findCity);
+  els.wxCity.addEventListener('keydown', e => { if (e.key === 'Enter') findCity(); });
+  els.wxHere.addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('This browser can’t share your location.', true); return; }
+    els.wxNow.textContent = 'Finding your location…';
+    navigator.geolocation.getCurrentPosition(async pos => {
+      prefs.loc = { name: 'your location', lat: +pos.coords.latitude.toFixed(3), lon: +pos.coords.longitude.toFixed(3) }; savePrefs();
+      await fetchWeather(true); toast('Weather set to your location.');
+    }, () => { els.wxNow.textContent = 'Location wasn’t shared. Type your city instead.'; }, { timeout: 15000 });
+  });
+  els.wxStyle.addEventListener('change', () => { prefs.wxStyle = els.wxStyle.value; savePrefs(); if (fx && fx.id === 'weather' && wx) paint({ hex: weatherColor(wx) }, fadeMs()); });
+
+  // ---------- Away from desk (Idle Detection) ----------
+  let idle = null, awayState = null;
+  const hasIdle = () => 'IdleDetector' in window;
+  function renderAway(msg) {
+    els.awaySw.checked = prefs.away;
+    els.awayMin.value = String(prefs.awayMin);
+    els.awayDo.value = prefs.awayDo;
+    els.awayInfo.textContent = msg || (!hasIdle() ? 'This browser can’t tell when you’re away. Use Chrome or Edge.'
+      : !prefs.away ? 'Off.' : awayState ? 'You’re away. The lamp comes back when you return.'
+      : idle ? 'On. Locking your computer also counts as away.' : 'Starting…');
+  }
+  async function startIdle(fromClick) {
+    stopIdle();
+    if (!prefs.away || !hasIdle()) { renderAway(); return; }
+    try {
+      let state = 'prompt';
+      try { state = (await navigator.permissions.query({ name: 'idle-detection' })).state; } catch {}
+      if (state !== 'granted') {
+        if (!fromClick) { renderAway('Click the switch off and on again to allow Iris to notice when you’re away.'); return; }
+        if (await IdleDetector.requestPermission() !== 'granted') { prefs.away = false; savePrefs(); renderAway('Permission refused, so Away from desk stays off.'); return; }
+      }
+      const ctl = new AbortController(), det = new IdleDetector();
+      det.addEventListener('change', () => onIdleChange(det));
+      await det.start({ threshold: Math.max(1, prefs.awayMin) * 60000, signal: ctl.signal });
+      idle = { ctl, det };
+      renderAway();
+    } catch (e) { renderAway('Couldn’t start: ' + errText(e)); }
+  }
+  function stopIdle() { if (idle) { try { idle.ctl.abort(); } catch {} idle = null; } }
+  async function onIdleChange(det) {
+    const away = det.userState === 'idle' || det.screenState === 'locked';
+    if (away && !awayState && light.on) {
+      awayState = { fxId: fx ? fx.id : null, state: { ...light } };
+      log('You stepped away. Fading the lamp ' + (prefs.awayDo === 'dim' ? 'down.' : 'out.'));
+      if (fx) { const id = fx.id; stopEffect(false); awayState.fxId = id; light.fx = id; saveLight(); }
+      const ms = Math.max(fadeMs(), 2000);
+      render();
+      els.nowK.textContent = 'Away';
+      if (prefs.awayDo === 'dim') { fadeSend(null, 25, null, ms); }
+      else { await fadeSend(null, 1, null, ms); if (awayState) { fadeTok = null; send('power', enc.power(false)); document.body.dataset.on = 'false'; } }
+      renderAway();
+    } else if (!away && awayState) {
+      const a = awayState; awayState = null;
+      log('Welcome back.');
+      light.on = prefs.awayDo === 'dim';
+      if (a.entry) applyEntry(a.entry);
+      else if (a.fxId && FX[a.fxId]) { light.on = true; send('power', enc.power(true)); startEffect(a.fxId, { keepBri: true, quiet: true }); }
+      else applyState({ ...a.state, on: true }, true);
+      renderAway();
+    }
+  }
+  els.awaySw.addEventListener('change', () => { prefs.away = els.awaySw.checked; savePrefs(); if (prefs.away) startIdle(true); else { stopIdle(); renderAway(); } });
+  els.awayMin.addEventListener('change', () => { prefs.awayMin = +els.awayMin.value; savePrefs(); if (prefs.away) startIdle(true); });
+  els.awayDo.addEventListener('change', () => { prefs.awayDo = els.awayDo.value; savePrefs(); });
+
+  // ---------- Mini player (Document Picture-in-Picture) ----------
+  let pip = null, mini = null;
+  const hasPip = () => 'documentPictureInPicture' in window;
+  function miniItems() {
+    const items = favorites.slice(0, 6).map(f => ({ label: favLabel(f), color: displayHex(f), run: () => applyState({ on: true, ...f }) }));
+    const defaults = [
+      { label: 'Follow the day', color: 'linear-gradient(135deg,' + FX.daylight.colors.join(',') + ')', run: () => startEffect('daylight') },
+      { label: 'Christmas lights', color: 'linear-gradient(135deg,' + FX.twinkle.colors.join(',') + ')', run: () => startEffect('twinkle') },
+      { label: 'Fireplace', color: 'linear-gradient(135deg,' + FX.fireplace.colors.join(',') + ')', run: () => startEffect('fireplace') },
+      { label: 'Focus', color: kelvinToHex(5000), run: () => setWhite(5000, { label: 'Focus', fade: true }) },
+      { label: 'Relax', color: kelvinToHex(2700), run: () => setWhite(2700, { label: 'Relax', fade: true }) },
+      { label: 'Holly berry', color: '#d4001c', run: () => setColor('#d4001c', { label: 'Holly berry', fade: true }) }
+    ];
+    for (const d of defaults) { if (items.length >= 6) break; items.push(d); }
+    return items;
+  }
+  async function openMini() {
+    if (!prefs.mini) return;
+    if (!hasPip()) { toast('The mini player needs a recent Chrome or Edge.', true); return; }
+    if (pip) { pip.focus(); return; }
+    try { pip = await window.documentPictureInPicture.requestWindow({ width: 360, height: 150 }); }
+    catch (e) { toast('Couldn’t open the mini player: ' + (e.message || e.name), true); return; }
+    const d = pip.document;
+    d.title = 'Iris';
+    for (const ss of document.styleSheets) {
+      try { const st = d.createElement('style'); st.textContent = [...ss.cssRules].map(r => r.cssText).join('\n'); d.head.append(st); }
+      catch { if (ss.href) { const l = d.createElement('link'); l.rel = 'stylesheet'; l.href = ss.href; d.head.append(l); } }
+    }
+    d.body.className = 'pip';
+    d.body.innerHTML = '<div class="mini"><button class="orb" id="mOrb" aria-label="Turn the light on or off"></button><div class="mini-main"><div class="mini-top"><b id="mLabel"></b><button class="btn small" id="mStop" hidden>Stop</button></div><input type="range" id="mBri" min="1" max="254" aria-label="Brightness"><div class="mini-dots" id="mDots"></div></div></div>';
+    const q = id => d.getElementById(id);
+    mini = { orb: q('mOrb'), label: q('mLabel'), stop: q('mStop'), bri: q('mBri'), dots: q('mDots') };
+    mini.orb.addEventListener('click', () => setPower(!light.on));
+    mini.stop.addEventListener('click', () => stopEffect(true));
+    mini.bri.addEventListener('input', () => setBri(+mini.bri.value));
+    buildMiniDots();
+    pip.addEventListener('pagehide', () => { pip = null; mini = null; });
+    renderMini();
+  }
+  function buildMiniDots() {
+    if (!mini) return;
+    mini.dots.replaceChildren(...miniItems().map(it => {
+      const b = pip.document.createElement('button');
+      b.className = 'dot'; b.type = 'button'; b.title = it.label; b.setAttribute('aria-label', it.label);
+      b.style.background = it.color;
+      b.addEventListener('click', it.run);
+      return b;
+    }));
+  }
+  function renderMini() {
+    els.miniBtn.hidden = !prefs.mini || !hasPip();
+    if (!mini || !pip) return;
+    const d = pip.document, r = d.documentElement;
+    const view = fx && fxView ? fxView : { hex: displayHex(), bri: light.bri };
+    r.style.setProperty('--lamp', view.hex);
+    r.style.setProperty('--glow', (view.bri / 254).toFixed(3));
+    r.style.setProperty('--fade', getComputedStyle(document.documentElement).getPropertyValue('--fade') || '300ms');
+    if (document.documentElement.dataset.theme) r.dataset.theme = document.documentElement.dataset.theme; else delete r.dataset.theme;
+    d.body.dataset.on = String(light.on && !(awayState && prefs.awayDo === 'off'));
+    mini.label.textContent = awayState ? 'Away' : !light.on ? 'Off' : fx ? fx.def.name : stateLabel();
+    mini.stop.hidden = !fx;
+    if (d.activeElement !== mini.bri) mini.bri.value = light.bri;
+  }
+  els.miniBtn.addEventListener('click', openMini);
+  els.miniSw.addEventListener('change', () => {
+    prefs.mini = els.miniSw.checked; savePrefs();
+    if (!prefs.mini && pip) { try { pip.close(); } catch {} }
+    renderMini();
+    toast(prefs.mini ? 'Mini player button is back, next to the status.' : 'Mini player turned off.');
+  });
+
+  // ---------- Start with Windows ----------
+  function renderStartSteps() {
+    const edge = /Edg\//.test(navigator.userAgent);
+    const steps = edge ? [
+      'In Edge, open <code>edge://apps</code>.',
+      'On the Iris tile, click <b>⋯</b> and turn on <b>Auto-start on device login</b>.',
+      'If you don’t see it: press <b>Windows + R</b>, type <code>shell:startup</code> and press Enter. Then open Start, find Iris, and drag it into that folder.'
+    ] : [
+      'In Chrome, open <code>chrome://apps</code>.',
+      'Right-click <b>Iris</b> and choose <b>Start app when you sign in</b>.',
+      'If you don’t see it: press <b>Windows + R</b>, paste <code>%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\Chrome Apps</code> and press Enter. Copy <b>Iris</b>. Press <b>Windows + R</b> again, type <code>shell:startup</code>, press Enter, and paste it there.'
+    ];
+    els.startSteps.innerHTML = steps.map(t => '<li>' + t + '</li>').join('') + '<li>With automatic reconnect on, Iris opens and connects to your lamp by itself when you sign in.</li>';
+  }
 
   // ---------- Dialogs ----------
   function openDialog(d) { if (!d.open) d.showModal(); }
@@ -2179,6 +2483,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     else if (e.key === 'ArrowDown' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri - 25); }
     else if (/^[1-6]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
     else if ((e.key === 'c' || e.key === 'C') && !ready) connect(false);
+    else if ((e.key === 'm' || e.key === 'M') && prefs.mini) openMini();
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------
@@ -2209,6 +2514,9 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   defaultAddTime(); syncAddForm(); renderSchedule();
   renderTimerChips(); renderSleepChips();
   setStatus('off'); renderDev(); renderInstall();
+  els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway();
+  if (prefs.away) startIdle(false);
+  if (prefs.loc && (!wx || Date.now() - wx.at > 15 * 60000)) fetchWeather(true);
   showTab(prefs.tab);
   render();
   runLaunchAction(location.href);
