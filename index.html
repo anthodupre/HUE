@@ -125,6 +125,17 @@ input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%;
 .legend .bar{ grid-column:1 / -1; width:100%; height:12px; border-radius:999px; }
 .legend .ends{ grid-column:1 / -1; display:flex; justify-content:space-between; }
 
+/* Breathing guide */
+.breath-stage{ position:relative; width:min(300px, 62vw, 44vh); aspect-ratio:1; display:grid; place-items:center; margin:.4rem 0; }
+.breath-stage::before{ content:""; position:absolute; inset:0; border-radius:50%; border:2px dashed var(--line); }
+.breath-ring{ position:absolute; inset:0; border-radius:50%; transform:scale(.56); transition-property:transform, opacity; transition-timing-function:ease-in-out;
+  background:radial-gradient(circle at 50% 42%, #e6f8ff 0%, #8fdcff 38%, #3aa8ff 75%, #1f6fe0 100%);
+  box-shadow:0 0 60px -4px rgba(58,168,255,.55); opacity:.9; }
+.breath-ring.full{ transform:scale(1); opacity:1; }
+.breath-center{ position:relative; display:flex; flex-direction:column; align-items:center; gap:.2rem; color:#0b2340; pointer-events:none; }
+.breath-center b{ font-size:clamp(1.2rem, 3.6vh, 1.6rem); font-weight:600; }
+.breath-center span{ font-size:clamp(2.2rem, 7vh, 3.2rem); font-weight:500; font-variant-numeric:tabular-nums; line-height:1; }
+
 /* Mini player (always-on-top window) */
 body.pip{ overflow:hidden; background:var(--bg); }
 .mini{ height:100vh; display:grid; grid-template-columns:auto minmax(0,1fr); gap:14px; align-items:center; padding:12px 16px; }
@@ -531,7 +542,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
             </div>
             <div class="card">
               <h2>Quick boosts</h2>
-              <p class="sub" id="breathText">One minute of energizing breathing, guided by the lamp: it brightens as you breathe in and dims as you breathe out.</p>
+              <p class="sub" id="breathText">Breathing guided by the lamp and a circle on screen: both grow as you breathe in and shrink as you breathe out.</p>
               <div class="row-btns">
                 <button id="breathBtn" class="btn primary">Energy breath</button>
                 <button id="burstBtn" class="btn">Energy burst</button>
@@ -739,6 +750,33 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   </div>
 </dialog>
 
+<!-- Breathing guide -->
+<dialog id="breathDlg" aria-labelledby="breathTitle" style="width:min(520px, calc(100vw - 32px))">
+  <div class="dlg" style="align-items:center; text-align:center">
+    <div class="dlg-head" style="width:100%"><h2 id="breathTitle">Energy breath</h2><button class="icon-btn" data-close aria-label="Stop and close">✕</button></div>
+    <div class="breath-stage" aria-hidden="true">
+      <div class="breath-ring" id="breathRing"></div>
+      <div class="breath-center"><b id="breathPhase">Get ready</b><span id="breathSec"></span></div>
+    </div>
+    <p id="breathRound" class="sub" style="margin:0" aria-live="polite"></p>
+    <div class="row" style="justify-content:center">
+      <label class="lbl">Pace
+        <select id="breathPace">
+          <option value="slow">Slow: in 5 · hold 2 · out 7</option>
+          <option value="steady">Steady: in 4 · hold 2 · out 6</option>
+          <option value="box">Box: in 4 · hold 4 · out 4 · hold 4</option>
+          <option value="quick">Quick: in 3 · hold 1 · out 4</option>
+        </select>
+      </label>
+      <label class="lbl">Length
+        <select id="breathLen"><option value="1">1 minute</option><option value="2">2 minutes</option><option value="3">3 minutes</option><option value="5">5 minutes</option></select>
+      </label>
+    </div>
+    <label class="check" style="margin-top:0"><input type="checkbox" id="breathSound"> Soft sound at each change, so you can close your eyes</label>
+    <div class="row-btns" style="margin-top:0"><button id="breathStop" class="btn">Stop</button></div>
+  </div>
+</dialog>
+
 <!-- Diagnostics -->
 <dialog id="diagDlg" aria-labelledby="diagTitle">
   <div class="dlg">
@@ -790,7 +828,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.5', date: 'Nov 11, 2026' };
+  const VERSION = { name: 'v2.6', date: 'Nov 11, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -820,7 +858,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -2350,29 +2388,86 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   els.napBtn.addEventListener('click', () => nap ? endNap(false) : startNap());
   els.napChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { prefs.napMin = +c.dataset.min; savePrefs(); renderAwake(); }));
 
-  // Energy breath: about one minute, the lamp leads the rhythm.
+  // Energy breath: the lamp and a circle on screen lead the rhythm.
+  const PACES = {
+    slow:   [['in', 5], ['hold', 2], ['out', 7]],
+    steady: [['in', 4], ['hold', 2], ['out', 6]],
+    box:    [['in', 4], ['hold', 4], ['out', 4], ['hold2', 4]],
+    quick:  [['in', 3], ['hold', 1], ['out', 4]]
+  };
+  const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', hold2: 'Hold' };
+  function chime(freq) {
+    if (!prefs.breathSound || !audioCtx) return;
+    try {
+      const t0 = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+      o.connect(g).connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.65);
+    } catch {}
+  }
+  function renderBreathOpts() {
+    els.breathPace.value = PACES[prefs.breathPace] ? prefs.breathPace : 'steady';
+    els.breathLen.value = String(prefs.breathLen);
+    els.breathSound.checked = prefs.breathSound;
+  }
   async function runBreath() {
     if (breath) { breath.stop = true; return; }
     const b = breath = { stop: false };
     if (fx) stopEffect(false);
-    els.breathBtn.textContent = 'Stop';
-    const lo = 60, hi = FULL, rounds = 5;
+    ensureAudio();
+    renderBreathOpts();
+    openDialog(els.breathDlg);
+    els.breathBtn.textContent = 'Stop breathing';
+    const ring = els.breathRing, lo = 60, hi = FULL;
+    const setRing = (full, ms) => { ring.style.transitionDuration = ms + 'ms'; ring.classList.toggle('full', full); };
+    // Count down the seconds of the current phase on screen.
+    let phaseEnd = 0;
+    const counter = setInterval(() => { els.breathSec.textContent = phaseEnd ? Math.max(1, Math.ceil((phaseEnd - Date.now()) / 1000)) : ''; }, 200);
     setWhite(WIDE, { exactBri: lo, label: 'Energy breath', fade: true });
-    els.breathText.textContent = 'Get comfortable…'; await sleep(2000);
-    for (let i = 1; i <= rounds && !b.stop; i++) {
-      for (const [txt, to, ms] of [['Breathe in deeply through your nose', hi, 4000], ['Hold', hi, 2000], ['Breathe out through your mouth', lo, 5000]]) {
+    setRing(false, 600);
+    els.breathPhase.textContent = 'Get comfortable';
+    els.breathRound.textContent = 'Sit up straight and relax your shoulders.';
+    phaseEnd = Date.now() + 3000;
+    await sleep(3000);
+    const t0 = Date.now();
+    let round = 0;
+    // Pace and length can change during the session; they apply from the next breath.
+    while (!b.stop) {
+      const pace = PACES[prefs.breathPace] || PACES.steady;
+      const cycle = pace.reduce((a, [, sec]) => a + sec, 0);
+      const total = Math.max(1, Math.round(prefs.breathLen * 60 / cycle));
+      if (round >= total) break;
+      round++;
+      for (const [ph, sec] of pace) {
         if (b.stop) break;
-        els.breathText.textContent = txt + ' · ' + i + ' of ' + rounds;
-        light.bri = to; render(ms);
-        if (ready) fadeSend(null, to, null, ms);
+        const ms = sec * 1000;
+        els.breathPhase.textContent = PHASE_TEXT[ph];
+        els.breathRound.textContent = 'Breath ' + round + ' of ' + total + (ph === 'in' ? ' · through your nose' : ph === 'out' ? ' · slowly, through your mouth' : '');
+        els.breathText.textContent = PHASE_TEXT[ph] + ' · breath ' + round + ' of ' + total;
+        phaseEnd = Date.now() + ms;
+        if (ph === 'in') { setRing(true, ms); chime(520); light.bri = hi; render(ms); if (ready) fadeSend(null, hi, null, ms); }
+        else if (ph === 'out') { setRing(false, ms); chime(392); light.bri = lo; render(ms); if (ready) fadeSend(null, lo, null, ms); }
+        else chime(440);
         await sleep(ms);
       }
     }
+    clearInterval(counter);
     breath = null;
     els.breathBtn.textContent = 'Energy breath';
-    els.breathText.textContent = b.stop ? 'One minute of energizing breathing, guided by the lamp: it brightens as you breathe in and dims as you breathe out.' : 'Done. Stand up for a moment before you sit back down.';
+    const mins = Math.round((Date.now() - t0) / 6000) / 10;
+    els.breathPhase.textContent = b.stop ? 'Stopped' : 'Done';
+    els.breathSec.textContent = '';
+    els.breathRound.textContent = b.stop ? '' : 'Nice. Stand up for a moment before you sit back down.';
+    els.breathText.textContent = b.stop ? 'Breathing guided by the lamp and a circle on screen: both grow as you breathe in and shrink as you breathe out.' : 'Done (' + mins + ' min). Stand up for a moment before you sit back down.';
+    setRing(false, 800);
     wideAwake('Wide awake');
+    if (!b.stop) setTimeout(() => { if (!breath && els.breathDlg.open) els.breathDlg.close(); }, 4000);
   }
+  els.breathPace.addEventListener('change', () => { prefs.breathPace = els.breathPace.value; savePrefs(); });
+  els.breathLen.addEventListener('change', () => { prefs.breathLen = +els.breathLen.value; savePrefs(); });
+  els.breathSound.addEventListener('change', () => { prefs.breathSound = els.breathSound.checked; savePrefs(); if (prefs.breathSound) { ensureAudio(); chime(520); } });
+  els.breathStop.addEventListener('click', () => { if (breath) breath.stop = true; els.breathDlg.close(); });
+  els.breathDlg.addEventListener('close', () => { if (breath) breath.stop = true; });
   els.breathBtn.addEventListener('click', runBreath);
   els.burstBtn.addEventListener('click', () => startEffect('energize'));
   els.coldBtn.addEventListener('click', () => wideAwake('Cold white blast'));

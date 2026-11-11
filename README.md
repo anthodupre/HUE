@@ -52,8 +52,12 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
   red and white once a second and beeps. It also keeps the screen from sleeping.
 - **Coffee nap:** drink a coffee, then nap 10 to 25 minutes. The lamp goes dark, a 2-minute sunrise
   starts near the end, then bright white and a beep wake you.
-- **Quick boosts:** Energy breath (one minute of breathing led by the lamp), Energy burst (an effect
-  cycling cool white, cyan and violet) and Cold white blast.
+- **Quick boosts:** Energy breath, Energy burst (an effect cycling cool white, cyan and violet) and
+  Cold white blast.
+- **Energy breath:** a large circle on screen grows as you breathe in and shrinks as you breathe out,
+  with the phase, a seconds countdown and the breath number. The lamp follows the same rhythm.
+  Paces: Slow (5-2-7), Steady (4-2-6, default), Box (4-4-4-4) and Quick (3-1-4), for 1 to 5 minutes,
+  with an optional soft sound at each change.
 
 ## Developer mode
 
