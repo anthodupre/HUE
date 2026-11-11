@@ -373,6 +373,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
       <button class="tab" role="tab" data-tab="scenes" aria-controls="pane-scenes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.7 5.5 6 .9-4.35 4.25 1 6L12 16.3l-5.35 2.85 1-6L3.3 8.9l6-.9z"/></svg><span>Scenes</span></button>
       <button class="tab" role="tab" data-tab="effects" aria-controls="pane-effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12c2.2-4.5 4.3-4.5 6.4 0s4.3 4.5 6.4 0 4.3-4.5 6.2 0"/></svg><span>Effects</span></button>
       <button class="tab" role="tab" data-tab="timers" aria-controls="pane-timers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span>Timers</span></button>
+      <button class="tab" role="tab" data-tab="awake" aria-controls="pane-awake"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h12v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v3M12 3.5v3"/></svg><span>Awake</span></button>
       <button class="tab" role="tab" data-tab="schedule" aria-controls="pane-schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Schedule</span></button>
       <button class="tab" role="tab" data-tab="settings" aria-controls="pane-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
     </nav>
@@ -491,6 +492,51 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
             <label class="check"><input type="checkbox" id="sleepFade" checked> Fade out slowly during the last 5 minutes</label>
             <div class="row-btns">
               <button id="sleepBtn" class="btn primary">Start sleep timer</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AWAKE -->
+      <section class="pane" id="pane-awake" role="tabpanel" aria-label="Stay awake" hidden>
+        <div class="two">
+          <div class="card">
+            <h2>Stay awake mode</h2>
+            <p class="sub">Bright cool white keeps you alert. Every so often the lamp nudges you with a quick break idea and checks that you’re still with it.</p>
+            <div class="big-time" id="awakeDisplay">20:00</div>
+            <p class="sub" id="awakeStats" style="margin:-.3rem 0 .5rem">Not running.</p>
+            <div class="set-row"><span>Nudge me every</span>
+              <select id="awakeEvery"><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="45">45 minutes</option></select></div>
+            <div class="set-row"><span>Each nudge</span>
+              <select id="awakeNudge"><option value="check">asks me to tap “I’m awake”</option><option value="pulse">only pulses the lamp</option></select></div>
+            <div class="set-row"><span>No answer in 45 s: flash and beep</span><input type="checkbox" class="switch" id="awakeAlarm" aria-label="Flash and beep if I don’t answer"></div>
+            <div class="set-row"><span>Keep the screen from sleeping</span><input type="checkbox" class="switch" id="awakeLock" aria-label="Keep the screen on"></div>
+            <div class="row-btns">
+              <button id="awakeBtn" class="btn primary">Start stay awake mode</button>
+              <button id="awakeNow" class="btn" disabled>Nudge me now</button>
+            </div>
+          </div>
+          <div class="side">
+            <div class="card">
+              <h2>Coffee nap</h2>
+              <p class="sub">Drink a coffee, then nap right away. Caffeine takes about 20 minutes to kick in, so you wake up just as it does. The lamp goes dark, then a sunrise and a beep wake you.</p>
+              <div class="big-time" id="napDisplay">20:00</div>
+              <div class="chip-row" id="napChips">
+                <button class="chip" data-min="10" aria-pressed="false">10</button>
+                <button class="chip" data-min="15" aria-pressed="false">15</button>
+                <button class="chip" data-min="20" aria-pressed="true">20</button>
+                <button class="chip" data-min="25" aria-pressed="false">25</button>
+              </div>
+              <div class="row-btns"><button id="napBtn" class="btn primary">Start coffee nap</button></div>
+            </div>
+            <div class="card">
+              <h2>Quick boosts</h2>
+              <p class="sub" id="breathText">One minute of energizing breathing, guided by the lamp: it brightens as you breathe in and dims as you breathe out.</p>
+              <div class="row-btns">
+                <button id="breathBtn" class="btn primary">Energy breath</button>
+                <button id="burstBtn" class="btn">Energy burst</button>
+                <button id="coldBtn" class="btn">Cold white blast</button>
+              </div>
             </div>
           </div>
         </div>
@@ -629,7 +675,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
               <dl class="keys" style="margin-top:.6rem">
                 <dt><kbd>Space</kbd></dt><dd>Turn the light on or off (fades in)</dd>
                 <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Brighter or dimmer</dd>
-                <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Switch section</dd>
+                <dt><kbd>1</kbd>–<kbd>7</kbd></dt><dd>Switch section</dd>
                 <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
                 <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
                 <dt><kbd>M</kbd></dt><dd>Open the mini player</dd>
@@ -680,6 +726,16 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     <p class="sub">Can’t find that setting? Use the address below instead and set “Experimental Web Platform features” to Enabled.</p>
     <div class="hex-row" style="width:100%"><input type="text" id="flagUrl2" readonly><button id="flagCopy2" class="btn small">Copy</button></div>
     <div class="row-btns" style="margin-top:0"><button class="btn" data-close>Close</button></div>
+  </div>
+</dialog>
+
+<!-- Stay awake check / nap alarm -->
+<dialog id="awakeDlg" aria-labelledby="awakeTitle">
+  <div class="dlg" style="align-items:center; text-align:center">
+    <h2 id="awakeTitle" style="font-size:1.6rem">Still awake?</h2>
+    <p id="awakeTip" style="font-size:1.05rem"></p>
+    <button id="awakeOk" class="btn primary" style="font-size:1.1rem; padding:.8rem 2rem">I’m awake</button>
+    <p class="sub" id="awakeCount"></p>
   </div>
 </dialog>
 
@@ -734,7 +790,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v2.4', date: 'Nov 6, 2026' };
+  const VERSION = { name: 'v2.5', date: 'Nov 11, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -764,7 +820,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -1387,7 +1443,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   }
 
   // ---------- Tabs ----------
-  const TAB_ORDER = ['color', 'scenes', 'effects', 'timers', 'schedule', 'settings'];
+  const TAB_ORDER = ['color', 'scenes', 'effects', 'timers', 'awake', 'schedule', 'settings'];
   function showTab(id) {
     if (!TAB_ORDER.includes(id)) id = 'color';
     prefs.tab = id; savePrefs();
@@ -1580,6 +1636,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
         if (!wx || wx.place !== prefs.loc.name) return { hex: c.startHex, note: 'Getting the weather…', hold: 1500 };
         return { hex: weatherColor(wx), note: weatherText(wx) };
       } },
+    { id: 'energize', name: 'Energy burst', cat: 'Wake up', colors: [SNOW, '#00e5ff', '#7a5cff'], ms: 200,
+      frame: (t, s, k) => ({ hex: cycle([SNOW, '#00e5ff', SNOW, '#7a5cff'], t * Math.max(k, .55), 2.5, .5) }) },
     { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 200,
       frame: (t, s, k) => ({ hex: drift(s, t * k, prev => pick([RED, GREEN, GOLD, RED, GREEN, XBLUE].filter(c => c !== prev)), 2.5, 1.5) }) },
     { id: 'christmas', name: 'Merry cycle', cat: 'Christmas', colors: [RED, GREEN, GOLD, WARM], ms: 220,
@@ -1911,6 +1969,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     const parts = [];
     if (timerEnd) parts.push(fmtMS(timerEnd - Date.now()));
     if (sleepEnd) parts.push('☾ ' + fmtMS(sleepEnd - Date.now()));
+    if (typeof nap !== 'undefined' && nap) parts.push('Nap ' + fmtMS(Math.max(0, nap.end - Date.now())));
+    else if (typeof awake !== 'undefined' && awake) parts.push(awake.pending ? 'Still awake?' : '☀ ' + fmtMS(awake.next - Date.now()));
     document.title = parts.length ? parts.join(' · ') + ' – Iris' : 'Iris';
   }
   function updateTimers() {
@@ -2105,6 +2165,217 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     try { await installEvt.userChoice; } catch {}
     installEvt = null; renderInstall();
   });
+
+  // ---------- Stay awake ----------
+  const BREAKS = [
+    'Stand up and stretch your arms over your head for 30 seconds.',
+    'Drink a full glass of cold water.',
+    'Walk around the room for 2 minutes.',
+    'Do 10 squats or 10 jumping jacks.',
+    'Look out a window at something far away for 20 seconds.',
+    'Splash cold water on your face.',
+    'Take 5 deep breaths, in through the nose and out through the mouth.',
+    'Roll your shoulders and your neck slowly, 5 times each way.',
+    'Step outside for a minute of fresh air.',
+    'Eat a small snack, like fruit or nuts.',
+    'Put on an upbeat song and move to it.',
+    'Tidy one small thing on your desk.'
+  ];
+  let awake = null, alarm = null, wakeLock = null, nap = null, breath = null;
+  const WIDE = 6500;
+  function notify(title, body) {
+    try {
+      if (document.hasFocus() || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const n = new Notification(title, { body, icon: 'icon-192.png', tag: 'iris-awake', requireInteraction: true });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch {}
+  }
+  function askNotify() { try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch {} }
+  async function grabWakeLock() {
+    if (!prefs.awakeLock || wakeLock || !('wakeLock' in navigator)) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } catch {}
+  }
+  function releaseWakeLock() { try { if (wakeLock) wakeLock.release(); } catch {} wakeLock = null; }
+  const wideAwake = (label = 'Stay awake', fade = true) => setWhite(WIDE, { exactBri: FULL, label, fade });
+
+  function renderAwake() {
+    els.awakeEvery.value = String(prefs.awakeEvery);
+    els.awakeNudge.value = prefs.awakeNudge;
+    els.awakeAlarm.checked = prefs.awakeAlarm;
+    els.awakeLock.checked = prefs.awakeLock;
+    els.awakeBtn.textContent = awake ? 'Stop stay awake mode' : 'Start stay awake mode';
+    els.awakeNow.disabled = !awake;
+    if (!awake) { els.awakeDisplay.textContent = fmtMS(prefs.awakeEvery * 60000); els.awakeStats.textContent = 'Not running.'; }
+    els.napChips.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(+c.dataset.min === prefs.napMin)));
+    if (!nap) els.napDisplay.textContent = fmtMS(prefs.napMin * 60000);
+    els.napBtn.textContent = nap ? 'Cancel nap' : 'Start coffee nap';
+  }
+  function startAwake() {
+    ensureAudio(); askNotify();
+    if (nap) endNap(false);
+    awake = { start: Date.now(), next: Date.now() + prefs.awakeEvery * 60000, answered: 0, missed: 0, pending: null, k: Math.floor(Math.random() * BREAKS.length), tick: setInterval(tickAwake, 1000) };
+    wideAwake();
+    grabWakeLock();
+    renderAwake(); tickAwake();
+    log('Stay awake mode on. First nudge in ' + prefs.awakeEvery + ' min.', false, 'ok', true);
+  }
+  function stopAwake(silent) {
+    if (!awake) return;
+    clearInterval(awake.tick); stopAlarm();
+    if (els.awakeDlg.open) { awake.pending = null; els.awakeDlg.close(); }
+    const a = awake; awake = null;
+    releaseWakeLock(); renderAwake(); updateTitle();
+    if (!silent) log('Stay awake mode off. You answered ' + a.answered + ' nudge' + (a.answered === 1 ? '' : 's') + '.', false, '', true);
+  }
+  function tickAwake() {
+    if (!awake) return;
+    const now = Date.now();
+    if (awake.pending) {
+      const left = awake.pending.deadline - now;
+      els.awakeDisplay.textContent = 'Tap!';
+      els.awakeCount.textContent = left > 0 ? (prefs.awakeAlarm ? 'Flashing and beeping in ' + Math.ceil(left / 1000) + ' s' : '') : 'Wake up!';
+      if (left <= 0 && prefs.awakeAlarm && !alarm) startAlarm();
+      if (left <= -90000) { awake.missed++; awake.pending = null; stopAlarm(); if (els.awakeDlg.open) els.awakeDlg.close(); awake.next = now + prefs.awakeEvery * 60000; wideAwake(); }
+    } else {
+      const left = awake.next - now;
+      els.awakeDisplay.textContent = fmtMS(left);
+      if (left <= 0) nudge();
+    }
+    els.awakeStats.textContent = 'Running for ' + fmtMS(now - awake.start) + ' · ' + awake.answered + ' answered' + (awake.missed ? ' · ' + awake.missed + ' missed' : '');
+    updateTitle();
+  }
+  async function pulseLamp() {
+    for (let i = 0; i < 3; i++) {
+      setColor('#00e5ff', { exactBri: FULL, label: 'Wake up!' }); await whenIdle(); await sleep(650);
+      setWhite(WIDE, { exactBri: FULL, label: 'Wake up!' }); await whenIdle(); await sleep(650);
+    }
+    if (!alarm) wideAwake('Stay awake', false);
+  }
+  function nudge() {
+    if (!awake || awake.pending) return;
+    const tip = BREAKS[awake.k++ % BREAKS.length];
+    if (fx) stopEffect(false);
+    pulseLamp();
+    if (prefs.awakeNudge === 'check') {
+      awake.pending = { deadline: Date.now() + 45000 };
+      els.awakeTitle.textContent = 'Still awake?';
+      els.awakeTip.textContent = tip;
+      els.awakeOk.textContent = 'I’m awake';
+      openDialog(els.awakeDlg);
+      notify('Still awake?', tip);
+    } else {
+      awake.answered++; awake.next = Date.now() + prefs.awakeEvery * 60000;
+      toast(tip); notify('Quick break', tip);
+    }
+    log('Nudge: ' + tip);
+  }
+  function answerAwake() {
+    if (!awake || !awake.pending) return;
+    awake.pending = null; awake.answered++;
+    stopAlarm();
+    awake.next = Date.now() + prefs.awakeEvery * 60000;
+    if (els.awakeDlg.open) els.awakeDlg.close();
+    wideAwake();
+    tickAwake();
+  }
+  // Alarm: alternates red and white once a second (slow, not a strobe) and beeps.
+  function startAlarm() {
+    ensureAudio();
+    alarm = { n: 0, t: setInterval(() => {
+      if (!alarm) return;
+      alarm.n++;
+      if (alarm.n % 2) setColor('#ff2020', { exactBri: FULL, label: 'Wake up!' }); else setWhite(WIDE, { exactBri: FULL, label: 'Wake up!' });
+      if (alarm.n % 2) beep();
+      if (alarm.n > 120) stopAlarm();
+    }, 1000) };
+  }
+  function stopAlarm() { if (alarm) { clearInterval(alarm.t); alarm = null; } }
+
+  els.awakeBtn.addEventListener('click', () => awake ? stopAwake(false) : startAwake());
+  els.awakeNow.addEventListener('click', () => { if (awake) { awake.next = Date.now(); tickAwake(); } });
+  els.awakeEvery.addEventListener('change', () => { prefs.awakeEvery = +els.awakeEvery.value; savePrefs(); if (awake && !awake.pending) awake.next = Date.now() + prefs.awakeEvery * 60000; renderAwake(); tickAwake(); });
+  els.awakeNudge.addEventListener('change', () => { prefs.awakeNudge = els.awakeNudge.value; savePrefs(); });
+  els.awakeAlarm.addEventListener('change', () => { prefs.awakeAlarm = els.awakeAlarm.checked; savePrefs(); if (!prefs.awakeAlarm) stopAlarm(); });
+  els.awakeLock.addEventListener('change', () => { prefs.awakeLock = els.awakeLock.checked; savePrefs(); if (awake && prefs.awakeLock) grabWakeLock(); else releaseWakeLock(); });
+  els.awakeOk.addEventListener('click', () => { if (nap && nap.phase === 'ring') endNap(true); else answerAwake(); });
+  els.awakeDlg.addEventListener('close', () => { if (nap && nap.phase === 'ring') endNap(true); else if (awake && awake.pending) answerAwake(); });
+
+  // Coffee nap: dark, then a short sunrise, then bright white and a beep.
+  function startNap() {
+    ensureAudio(); askNotify();
+    const resume = !!awake;
+    if (awake) stopAwake(true);
+    if (fx) stopEffect(false);
+    nap = { end: Date.now() + prefs.napMin * 60000, phase: 'sleep', resume, t: setInterval(tickNap, 1000) };
+    setWhite(2200, { exactBri: 5, label: 'Coffee nap', fade: true });
+    setTimeout(() => { if (nap && nap.phase === 'sleep') setPower(false, false); }, Math.max(fadeMs(), 1000) + 300);
+    renderAwake(); tickNap();
+    log('Coffee nap: ' + prefs.napMin + ' minutes. Sleep well.', false, 'ok', true);
+  }
+  function tickNap() {
+    if (!nap) return;
+    const left = nap.end - Date.now();
+    els.napDisplay.textContent = fmtMS(Math.max(0, left));
+    if (nap.phase === 'sleep' && left <= 2 * 60000) {
+      nap.phase = 'rise';
+      startEffect('sunrise', { dur: Math.max(left, 5000) / 60000 });
+    }
+    if (left <= 0 && nap.phase !== 'ring') {
+      nap.phase = 'ring'; nap.rang = Date.now();
+      if (fx) stopEffect(false);
+      wideAwake('Wakey wakey', true);
+      els.awakeTitle.textContent = 'Nap’s over';
+      els.awakeTip.textContent = 'Time to get up. The coffee should be kicking in now.';
+      els.awakeOk.textContent = 'I’m up';
+      els.awakeCount.textContent = '';
+      openDialog(els.awakeDlg);
+      notify('Nap’s over', 'Time to get up.');
+    }
+    if (nap.phase === 'ring') {
+      const since = Date.now() - nap.rang;
+      if (Math.floor(since / 1000) % 3 === 0) beep();
+      if (since > 3 * 60000) endNap(true);
+    }
+    updateTitle();
+  }
+  function endNap(woke) {
+    if (!nap) return;
+    clearInterval(nap.t);
+    const n = nap; nap = null;
+    if (els.awakeDlg.open) els.awakeDlg.close();
+    renderAwake(); updateTitle();
+    if (woke) { log('Nap done. Welcome back.', false, 'ok', true); if (n.resume) startAwake(); }
+    else { log('Coffee nap cancelled.', false, '', true); if (!light.on || fx) wideAwake('Stay awake'); }
+  }
+  els.napBtn.addEventListener('click', () => nap ? endNap(false) : startNap());
+  els.napChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { prefs.napMin = +c.dataset.min; savePrefs(); renderAwake(); }));
+
+  // Energy breath: about one minute, the lamp leads the rhythm.
+  async function runBreath() {
+    if (breath) { breath.stop = true; return; }
+    const b = breath = { stop: false };
+    if (fx) stopEffect(false);
+    els.breathBtn.textContent = 'Stop';
+    const lo = 60, hi = FULL, rounds = 5;
+    setWhite(WIDE, { exactBri: lo, label: 'Energy breath', fade: true });
+    els.breathText.textContent = 'Get comfortable…'; await sleep(2000);
+    for (let i = 1; i <= rounds && !b.stop; i++) {
+      for (const [txt, to, ms] of [['Breathe in deeply through your nose', hi, 4000], ['Hold', hi, 2000], ['Breathe out through your mouth', lo, 5000]]) {
+        if (b.stop) break;
+        els.breathText.textContent = txt + ' · ' + i + ' of ' + rounds;
+        light.bri = to; render(ms);
+        if (ready) fadeSend(null, to, null, ms);
+        await sleep(ms);
+      }
+    }
+    breath = null;
+    els.breathBtn.textContent = 'Energy breath';
+    els.breathText.textContent = b.stop ? 'One minute of energizing breathing, guided by the lamp: it brightens as you breathe in and dims as you breathe out.' : 'Done. Stand up for a moment before you sit back down.';
+    wideAwake('Wide awake');
+  }
+  els.breathBtn.addEventListener('click', runBreath);
+  els.burstBtn.addEventListener('click', () => startEffect('energize'));
+  els.coldBtn.addEventListener('click', () => wideAwake('Cold white blast'));
 
   // ---------- Weather (Open-Meteo, free, no account) ----------
   let wx = store.get('wx', null);
@@ -2522,7 +2793,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
     if (e.key === ' ' && tag !== 'button') { e.preventDefault(); setPower(!light.on); }
     else if (e.key === 'ArrowUp' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri + 25); }
     else if (e.key === 'ArrowDown' && !e.target.closest('.tabs')) { e.preventDefault(); setBri(light.bri - 25); }
-    else if (/^[1-6]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
+    else if (/^[1-7]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
     else if ((e.key === 'c' || e.key === 'C') && !ready) connect(false);
     else if ((e.key === 'm' || e.key === 'M') && prefs.mini) openMini();
   });
@@ -2555,7 +2826,7 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   defaultAddTime(); syncAddForm(); renderSchedule();
   renderTimerChips(); renderSleepChips();
   setStatus('off'); renderDev(); renderInstall();
-  els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway();
+  els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway(); renderAwake();
   if (awayOn()) startIdle(false);
   if (prefs.loc && (!wx || Date.now() - wx.at > 15 * 60000)) fetchWeather(true);
   showTab(prefs.tab);
@@ -2572,6 +2843,8 @@ dialog::backdrop{ background:rgba(10,12,18,.5); }
   setInterval(tickSchedule, 15000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
+    if (awake) { grabWakeLock(); tickAwake(); }
+    if (nap) tickNap();
     tickSchedule(); updateTimers();
     if (wantConnected && !ready && !connecting && device) { retry = 0; scheduleReconnect(); }
   });

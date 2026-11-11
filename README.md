@@ -45,6 +45,16 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
 - **Start with Windows:** Settings → App → Start Iris with Windows shows the steps.
 - Effects that were running when you closed Iris start again when it reconnects.
 
+## Stay awake (Awake tab)
+
+- **Stay awake mode:** bright 6500K white at full brightness. Every 10 to 45 minutes the lamp pulses,
+  suggests a quick break and asks you to tap "I'm awake". With no answer in 45 seconds it alternates
+  red and white once a second and beeps. It also keeps the screen from sleeping.
+- **Coffee nap:** drink a coffee, then nap 10 to 25 minutes. The lamp goes dark, a 2-minute sunrise
+  starts near the end, then bright white and a beep wake you.
+- **Quick boosts:** Energy breath (one minute of breathing led by the lamp), Energy burst (an effect
+  cycling cool white, cyan and violet) and Cold white blast.
+
 ## Developer mode
 
 Settings → Help → DEV, then type the code `BURGER`. It unlocks a simulated lamp (works without
