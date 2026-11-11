@@ -30,6 +30,16 @@ setting for this, and Settings → Light → Turn on automatic reconnect shows h
 
 Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, Focus and Turn off.
 
+## Design and search (v3)
+
+- **Atelier look:** warm light and dark themes, frosted glass panels, a glass lamp with a brightness
+  ring, and a page that glows softly in the lamp's color. Laid out first for a window snapped to half
+  the screen.
+- **Search everything:** press Ctrl+K (or /) to find and run any scene, effect, white, favorite,
+  timer or action.
+- **Named favorites:** "Save current" asks for a name. Favorites appear under Scenes → Mine.
+- **Back up and restore:** Settings → Help saves favorites, schedule and settings to a file.
+
 ## Office features
 
 - **Follow the day:** an effect that shifts the white with the clock, warm in the morning and
