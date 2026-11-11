@@ -278,11 +278,18 @@ input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
 .tag{ font-size:.5938rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; padding:.1rem .38rem; border-radius:4px; background:var(--soft); color:var(--muted); }
 .cards > :nth-child(2){ animation-delay:.02s; } .cards > :nth-child(3){ animation-delay:.04s; } .cards > :nth-child(4){ animation-delay:.06s; } .cards > :nth-child(5){ animation-delay:.08s; } .cards > :nth-child(6){ animation-delay:.1s; }
 .cards > :nth-child(n+7){ animation-delay:.12s; } .cards > :nth-child(n+13){ animation-delay:.16s; }
+.cards > .fav{ display:flex; min-width:0; animation:rise .5s var(--ease) both; }
+.cards > .fav > .scard{ flex:1; animation:none; }
+.scard.new .sw{ background:none; box-shadow:none; border:1.5px dashed var(--muted); display:grid; place-items:center; font-size:1.7rem; font-weight:300; color:var(--muted); line-height:1; }
+.scard.new .sw::after{ display:none; }
+.fxb-preview{ height:56px; border-radius:14px; background:var(--g); background-size:200% 200%; animation:drift 4s linear infinite; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06), inset 0 18px 22px -14px rgba(255,255,255,.4); }
+.fxb-colors{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
 .cards > .empty{ grid-column:1 / -1; padding:1.4rem 0; text-align:center; }
 .pane-top{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:clamp(10px, 1.8vh, 16px); }
 .fx-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:.75rem 1.25rem; }
 .fx-bar label{ display:flex; align-items:center; gap:.55rem; font-size:.8438rem; color:var(--muted); }
 .fx-bar input[type=range]{ width:140px; }
+#fxStop{ display:none; } /* the Now card and Esc already stop an effect */
 
 /* Timers */
 .two{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:clamp(12px, 1.6vw, 20px); align-items:start; }
@@ -578,16 +585,17 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
 
       <!-- EFFECTS -->
       <section class="pane" id="pane-effects" role="tabpanel" aria-label="Effects" hidden>
-        <p class="sub" style="margin:0 0 .6rem">Effects keep changing the light on their own while Iris is open, and pick up again when it reopens.</p>
         <div class="pane-top">
+          <div class="seg" id="fxCats" role="tablist" aria-label="Effect category"></div>
           <div class="fx-bar">
             <label>Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
             <label>Sunrise and sunset last
               <select id="fxDur"><option value="1">1 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option></select>
             </label>
           </div>
-          <button id="fxStop" class="btn" disabled>Stop effect</button>
+          <button id="fxStop" class="btn small" disabled>Stop effect</button>
         </div>
+        <p class="sub" id="fxNote" style="margin:0 0 .8rem" hidden>Screen sync follows the colors on your screen, like a backlight. Music listens through your microphone and moves with the beat. Nothing is recorded or sent anywhere.</p>
         <div class="cards" id="fxGrid"></div>
       </section>
 
@@ -615,6 +623,10 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
               </select>
             </div>
             <label class="check"><input type="checkbox" id="beep"> Also play a short sound</label>
+            <label class="check"><input type="checkbox" id="pomoSw"> <span>Pomodoro: after each focus, take a
+              <select id="breakMin" aria-label="Break length" style="min-height:28px; padding:.1rem .4rem"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="15">15</option></select>
+              min break, then repeat</span></label>
+            <p class="sub" id="pomoInfo" hidden></p>
             <div class="row-btns">
               <button id="timerBtn" class="btn primary">Start timer</button>
               <button id="testFlash" class="btn">Test the flash</button>
@@ -936,6 +948,19 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   </div>
 </dialog>
 
+<!-- Effect builder -->
+<dialog id="fxDlg" aria-labelledby="fxbTitle" style="width:min(480px, calc(100vw - 32px))">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="fxbTitle">New effect</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <div class="fxb-preview" id="fxbPreview"></div>
+    <label class="lbl">Name <input type="text" id="fxbName" maxlength="22" placeholder="My effect" autocomplete="off"></label>
+    <div><span class="lbl" style="margin-bottom:.4rem">Colors (2 to 6)</span><div class="fxb-colors" id="fxbColors"></div></div>
+    <div><span class="lbl" style="margin-bottom:.4rem">Movement</span><div class="seg" id="fxbStyle"></div>
+      <p class="sub" id="fxbHint" style="margin:.5rem 0 0"></p></div>
+    <div class="row-btns" style="margin-top:.2rem"><button id="fxbSave" class="btn primary">Save effect</button><button id="fxbTry" class="btn">Try it on the lamp</button></div>
+  </div>
+</dialog>
+
 <!-- Diagnostics -->
 <dialog id="diagDlg" aria-labelledby="diagTitle">
   <div class="dlg">
@@ -987,7 +1012,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v3.0', date: 'Nov 11, 2026' };
+  const VERSION = { name: 'v3.1', date: 'Nov 11, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -1017,7 +1042,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   const saveLight = () => store.set('light', light);
@@ -1859,6 +1884,10 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
         if (!wx || wx.place !== prefs.loc.name) return { hex: c.startHex, note: 'Getting the weather…', hold: 1500 };
         return { hex: weatherColor(wx), note: weatherText(wx) };
       } },
+    { id: 'screen', name: 'Screen sync', cat: 'Follows your screen', colors: ['#ff3d6e', '#ffd23d', '#3dd6ff', '#7a5cff'], ms: 140, live: true,
+      begin: () => screenBegin(), cleanup: () => liveStop('screen'), frame: (t, s, k, c) => screenFrame(c) },
+    { id: 'music', name: 'Music', cat: 'Moves with the beat', colors: ['#ff00d4', '#7a00ff', '#00e1ff', '#ffe600'], ms: 90, live: true,
+      begin: () => musicBegin(), cleanup: () => liveStop('music'), frame: (t, s, k, c) => musicFrame(c) },
     { id: 'energize', name: 'Energy burst', cat: 'Wake up', colors: [SNOW, '#00e5ff', '#7a5cff'], ms: 200,
       frame: (t, s, k) => ({ hex: cycle([SNOW, '#00e5ff', SNOW, '#7a5cff'], t * Math.max(k, .55), 2.5, .5) }) },
     { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 200,
@@ -1926,11 +1955,16 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   async function startEffect(id, opts = {}) {
     const def = FX[id]; if (!def) return;
     if (fx) stopEffect(false);
+    if (def.begin) {
+      try { await def.begin(); }
+      catch (e) { if (def.cleanup) def.cleanup(); toast(e && e.name === 'NotAllowedError' ? def.name + ' needs your permission to start.' : 'Couldn’t start ' + def.name + ': ' + (e && e.message ? e.message : e), true); return; }
+      if (fx) stopEffect(false);
+    }
     const token = {};
     const durMin = opts.dur != null ? opts.dur : prefs.fxDur;
     fx = { id, def, token, t0: performance.now(), dur: Math.max(5, durMin * 60), startHex: displayHex(), startBri: light.bri, prev: { ...light } };
     if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; }
-    light.fx = def.timed ? null : id;
+    light.fx = def.timed || def.live || id === 'c_try' ? null : id;
     if (!light.on) { light.on = true; send('power', enc.power(true)); }
     saveLight();
     render();
@@ -1942,7 +1976,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       renderMini();
     };
     // Glide into the effect's first color instead of jumping to it.
-    if (!def.timed && fadeMs()) {
+    if (!def.timed && !def.live && fadeMs()) {
       const first = def.frame(0, st, speedMul(), fx);
       if (first && !first.done) {
         const ms = Math.min(fadeMs(), 4000);
@@ -1967,13 +2001,14 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       await whenIdle();
       if (!fx || fx.token !== token) break;
       const wait = o.hold ?? def.ms;
-      await sleep(def.steady || def.timed ? wait : Math.max(110, wait / speedMul()));
+      await sleep(def.steady || def.timed || def.live ? wait : Math.max(110, wait / speedMul()));
     }
   }
   function stopEffect(restore) {
     if (!fx) return;
-    const prev = fx.prev;
+    const prev = fx.prev, old = fx.def;
     fx = null; fxView = null; light.fx = null; saveLight();
+    if (old.cleanup) old.cleanup();
     els.nowExtra.hidden = true;
     pending.delete('xy'); pending.delete('bri');
     if (restore) applyState({ ...prev, on: true }, true);
@@ -1987,14 +2022,174 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     sw.style.setProperty('--g', 'linear-gradient(90deg,' + [...def.colors, def.colors[0]].join(',') + ')');
     const n = document.createElement('b'); n.textContent = label || def.name;
     const sm = document.createElement('small');
-    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : def.steady ? 'Live' : 'Animated';
+    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : def.steady || def.live ? 'Live' : def.custom ? 'Custom' : 'Animated';
     const cat = document.createElement('span'); cat.textContent = extra || def.cat;
     sm.append(tg, cat);
     b.append(sw, n, sm);
     b.addEventListener('click', () => { if (fx && fx.id === def.id) stopEffect(true); else startEffect(def.id); });
     return b;
   }
-  function buildFx() { els.fxGrid.replaceChildren(...FX_LIST.map(d => fxCard(d))); }
+  // ----- Effect categories -----
+  const FX_GROUPS = [['everyday', 'Everyday'], ['christmas', 'Christmas'], ['cozy', 'Cozy'], ['party', 'Party'], ['live', 'Live'], ['mine', 'Mine']];
+  const grpOf = d => d.custom ? 'mine' : d.live ? 'live' : d.cat === 'Christmas' ? 'christmas' : d.cat === 'Cozy' ? 'cozy' : d.cat === 'Party' ? 'party' : 'everyday';
+  function buildFx() {
+    if (!FX_GROUPS.some(g => g[0] === prefs.fxCat)) prefs.fxCat = 'everyday';
+    els.fxCats.replaceChildren(...FX_GROUPS.map(([id, name]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.role = 'tab'; b.textContent = name; b.dataset.cat = id; b.setAttribute('aria-selected', String(id === prefs.fxCat));
+      b.addEventListener('click', () => { prefs.fxCat = id; savePrefs(); buildFx(); });
+      return b;
+    }));
+    const nodes = FX_LIST.filter(d => grpOf(d) === prefs.fxCat).map(d => {
+      if (!d.custom) return fxCard(d);
+      const wrap = document.createElement('div'); wrap.className = 'fav';
+      const x = document.createElement('button'); x.className = 'x'; x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Delete the effect ' + d.name);
+      x.addEventListener('click', () => deleteCustom(d.id));
+      wrap.append(fxCard(d), x);
+      return wrap;
+    });
+    if (prefs.fxCat === 'mine') {
+      const b = document.createElement('button'); b.className = 'scard new'; b.type = 'button';
+      const sw = document.createElement('span'); sw.className = 'sw'; sw.textContent = '+';
+      const n = document.createElement('b'); n.textContent = 'New effect';
+      const sm = document.createElement('small'); sm.textContent = 'Build your own';
+      b.append(sw, n, sm); b.addEventListener('click', openBuilder);
+      nodes.push(b);
+    }
+    els.fxGrid.replaceChildren(...nodes);
+    els.fxNote.hidden = prefs.fxCat !== 'live';
+    markCards();
+  }
+
+  // ----- Your own effects -----
+  const FX_STYLES = { glide: ['Glide', 'Colors melt into each other, one after the other.'], step: ['Hold & glide', 'Each color stays a while, then glides to the next.'], breathe: ['Breathe', 'The lamp breathes in and out, changing color each breath.'], twinkle: ['Twinkle', 'Colors come in a random order, like fairy lights.'] };
+  let customFx = store.get('customFx', []);
+  function customDef(c) {
+    const cols = c.colors;
+    const frames = {
+      glide: (t, s, k) => ({ hex: cycle(cols, t * k, 5, .7) }),
+      step: (t, s, k) => { s.i = s.i ?? -1; return { hex: drift(s, t * k, () => cols[(s.i = (s.i + 1) % cols.length)], 3, 1.5) }; },
+      breathe: (t, s, k) => { const x = t * k / 6; return { hex: cols[Math.floor(x) % cols.length], f: .12 + .88 * (.5 - .5 * Math.cos(2 * Math.PI * x)) }; },
+      twinkle: (t, s, k) => ({ hex: drift(s, t * k, prev => pick(cols.length > 1 ? cols.filter(x => x !== prev) : cols), 2.2, 1.3) })
+    };
+    return { id: c.id, name: c.name, cat: (FX_STYLES[c.style] || FX_STYLES.glide)[0], colors: cols, ms: 200, custom: true, frame: frames[c.style] || frames.glide };
+  }
+  function syncCustom() {
+    for (let i = FX_LIST.length - 1; i >= 0; i--) if (FX_LIST[i].custom) { delete FX[FX_LIST[i].id]; FX_LIST.splice(i, 1); }
+    customFx = customFx.filter(c => c && c.id && Array.isArray(c.colors) && c.colors.length >= 2);
+    for (const c of customFx) { const d = customDef(c); FX_LIST.push(d); FX[d.id] = d; }
+  }
+  syncCustom();
+  function deleteCustom(id) {
+    if (fx && fx.id === id) stopEffect(true);
+    customFx = customFx.filter(c => c.id !== id); store.set('customFx', customFx);
+    syncCustom(); fillFxSelect(); buildFx();
+    toast('Effect deleted.');
+  }
+  const fxb = { colors: [], style: 'glide' };
+  function renderBuilder() {
+    els.fxbPreview.style.setProperty('--g', 'linear-gradient(90deg,' + [...fxb.colors, fxb.colors[0]].join(',') + ')');
+    const nodes = fxb.colors.map((c, i) => {
+      const inp = document.createElement('input'); inp.type = 'color'; inp.value = c; inp.setAttribute('aria-label', 'Color ' + (i + 1));
+      inp.addEventListener('input', () => { fxb.colors[i] = inp.value; els.fxbPreview.style.setProperty('--g', 'linear-gradient(90deg,' + [...fxb.colors, fxb.colors[0]].join(',') + ')'); });
+      return inp;
+    });
+    const mk = (txt, label, fn, off) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'icon-btn'; b.textContent = txt; b.setAttribute('aria-label', label); b.disabled = off; b.style.opacity = off ? .35 : 1; b.addEventListener('click', fn); return b; };
+    nodes.push(mk('+', 'Add a color', () => { fxb.colors.push(hsvToHex(Math.random() * 360, 1, 1)); renderBuilder(); }, fxb.colors.length >= 6));
+    nodes.push(mk('−', 'Remove the last color', () => { fxb.colors.pop(); renderBuilder(); }, fxb.colors.length <= 2));
+    els.fxbColors.replaceChildren(...nodes);
+    els.fxbStyle.replaceChildren(...Object.entries(FX_STYLES).map(([id, [name]]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = name; b.setAttribute('aria-pressed', String(id === fxb.style));
+      b.addEventListener('click', () => { fxb.style = id; renderBuilder(); });
+      return b;
+    }));
+    els.fxbHint.textContent = FX_STYLES[fxb.style][1];
+  }
+  function openBuilder() {
+    fxb.colors = [light.mode === 'color' ? light.hex : '#ff7a1f', '#ff2d95', '#7a5cff']; fxb.style = 'glide';
+    els.fxbName.value = '';
+    renderBuilder(); openDialog(els.fxDlg);
+  }
+  els.fxbTry.addEventListener('click', () => {
+    FX.c_try = customDef({ id: 'c_try', name: els.fxbName.value.trim() || 'Preview', colors: [...fxb.colors], style: fxb.style });
+    startEffect('c_try');
+  });
+  els.fxbSave.addEventListener('click', () => {
+    const tryPrev = fx && fx.id === 'c_try' ? fx.prev : null;
+    if (tryPrev) stopEffect(false);
+    const c = { id: 'c_' + Date.now().toString(36), name: els.fxbName.value.trim() || 'My effect ' + (customFx.length + 1), colors: [...fxb.colors], style: fxb.style };
+    customFx.push(c); if (customFx.length > 18) customFx.shift();
+    store.set('customFx', customFx);
+    syncCustom(); fillFxSelect();
+    prefs.fxCat = 'mine'; savePrefs(); buildFx();
+    els.fxDlg.close();
+    startEffect(c.id).then(() => {});
+    if (tryPrev && fx) fx.prev = tryPrev;
+    log('Effect saved: ' + c.name + '.', false, 'ok', true);
+  });
+  els.fxDlg.addEventListener('close', () => { if (fx && fx.id === 'c_try') stopEffect(true); });
+
+  // ----- Live modes: screen sync and music -----
+  const live = { screen: null, music: null };
+  function liveStop(kind) {
+    const L = live[kind]; live[kind] = null; if (!L) return;
+    try { L.stream.getTracks().forEach(t => t.stop()); } catch {}
+    try { if (L.src) L.src.disconnect(); } catch {}
+    try { if (L.video) L.video.srcObject = null; } catch {}
+  }
+  async function screenBegin() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) throw new Error('this browser can’t share the screen');
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 12, width: { ideal: 480 } }, audio: false });
+    const video = document.createElement('video'); video.muted = true; video.playsInline = true; video.srcObject = stream;
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 18;
+    live.screen = { stream, video, ctx: cv.getContext('2d', { willReadFrequently: true }), rgb: null, lum: null };
+    try { await video.play(); } catch {}
+    const track = stream.getVideoTracks()[0];
+    if (track) track.addEventListener('ended', () => { if (fx && fx.id === 'screen') { stopEffect(true); toast('Screen sync stopped.'); } });
+  }
+  function screenFrame(c) {
+    const L = live.screen;
+    if (!L || L.video.readyState < 2) return { hex: c.startHex, note: 'Waiting for the screen…', hold: 200 };
+    let d;
+    try { L.ctx.drawImage(L.video, 0, 0, 32, 18); d = L.ctx.getImageData(0, 0, 32, 18).data; } catch { return { hex: c.startHex, hold: 300 }; }
+    let r = 0, g = 0, b = 0, w = 0, lum = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const R = d[i], G = d[i + 1], B = d[i + 2], mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+      const wt = .15 + ((mx - mn) / 255) * (mx / 255) * 3; // vivid pixels count more than gray ones
+      r += R * wt; g += G * wt; b += B * wt; w += wt; lum += mx;
+    }
+    r /= w; g /= w; b /= w; lum = lum / (d.length / 4) / 255;
+    const a = L.rgb ? .4 : 1;
+    L.rgb = L.rgb ? [L.rgb[0] + (r - L.rgb[0]) * a, L.rgb[1] + (g - L.rgb[1]) * a, L.rgb[2] + (b - L.rgb[2]) * a] : [r, g, b];
+    L.lum = L.lum == null ? lum : L.lum + (lum - L.lum) * a;
+    const [h, sat] = hexToHsv(rgbToHex(...L.rgb));
+    return { hex: hsvToHex(h, Math.min(1, sat * 1.5), 1), f: clamp(.1 + .9 * Math.pow(L.lum, .8), .04, 1), note: 'Following your screen', hold: 140 };
+  }
+  async function musicBegin() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('this browser can’t use the microphone');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    ensureAudio();
+    if (!audioCtx) { stream.getTracks().forEach(t => t.stop()); throw new Error('sound isn’t available'); }
+    const src = audioCtx.createMediaStreamSource(stream), an = audioCtx.createAnalyser();
+    an.fftSize = 1024; an.smoothingTimeConstant = .55; src.connect(an);
+    live.music = { stream, src, an, buf: new Uint8Array(an.frequencyBinCount), peak: 40, level: 0, avg: 0, hue: rand(0, 360), lastBeat: 0 };
+  }
+  function musicFrame(c) {
+    const M = live.music; if (!M) return { hex: c.startHex, hold: 200 };
+    M.an.getByteFrequencyData(M.buf);
+    let bass = 0; for (let i = 1; i <= 10; i++) bass += M.buf[i]; bass /= 10;
+    let all = 0; for (let i = 1; i < 180; i++) all += M.buf[i]; all /= 179;
+    const e = bass * .7 + all * .3;
+    M.peak = Math.max(M.peak * .995, e, 30);
+    const n = clamp(e / M.peak, 0, 1);
+    M.avg += (n - M.avg) * .08;
+    M.level = n > M.level ? n : M.level + (n - M.level) * .35;
+    const now = performance.now();
+    if (n > M.avg * 1.35 && n > .45 && now - M.lastBeat > 380) { M.lastBeat = now; M.hue = (M.hue + rand(35, 95)) % 360; }
+    else M.hue = (M.hue + .6) % 360;
+    const quiet = e < 6;
+    return { hex: hsvToHex(M.hue, 1, 1), f: quiet ? .2 : .18 + .82 * Math.pow(M.level, 1.6), note: quiet ? 'Listening… play some music' : 'Moving with the music', hold: 90 };
+  }
   els.fxSpeed.value = prefs.fxSpeed2;
   els.fxSpeed.addEventListener('input', () => { prefs.fxSpeed2 = +els.fxSpeed.value; savePrefs(); });
   els.fxDur.value = String(prefs.fxDur);
@@ -2123,31 +2318,62 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       osc.start(t0 + o); osc.stop(t0 + o + 0.3);
     });
   }
-  function startTimer() {
-    if (prefs.beep) ensureAudio();
-    const ms = prefs.timerMin * 60000;
+  let pomo = null;
+  function runTimer(ms) {
     timerEnd = Date.now() + ms;
     clearTimeout(timerTimeout); clearInterval(timerTick);
     timerTimeout = setTimeout(timerDone, ms);
     timerTick = setInterval(updateTimers, 500);
     updateTimers();
     els.timerBtn.textContent = 'Stop timer';
-    log('Focus timer started: ' + prefs.timerMin + ' min.', false, '', true);
+    renderPomo();
   }
-  function stopTimer(silent) {
+  function startTimer() {
+    if (prefs.beep) ensureAudio();
+    pomo = prefs.pomo ? { phase: 'focus', round: 1 } : null;
+    runTimer(prefs.timerMin * 60000);
+    log('Focus timer started: ' + prefs.timerMin + ' min.' + (pomo ? ' Pomodoro is on.' : ''), false, '', true);
+  }
+  function stopTimer(silent, keepPomo) {
     clearTimeout(timerTimeout);
     timerEnd = null;
     els.timerBtn.textContent = 'Start timer';
-    renderTimerChips(); updateTitle();
+    if (!keepPomo) { const p = pomo; pomo = null; if (p && p.phase === 'break' && p.state) applyState(p.state, true); }
+    renderTimerChips(); updateTitle(); renderPomo();
     if (!silent) log('Focus timer stopped.');
   }
   async function timerDone() {
     if (!timerEnd) return;
-    stopTimer(true);
-    log('Time’s up.', false, '', true);
+    const p = pomo;
+    stopTimer(true, true);
+    log(p && p.phase === 'break' ? 'Break’s over. Back to it.' : 'Time’s up.', false, '', true);
     if (prefs.beep) beep();
     await alertFlash();
+    if (pomo !== p || timerEnd) return; // the user started or stopped something meanwhile
+    if (p && prefs.pomo) pomoNext(p); else { pomo = null; renderPomo(); }
   }
+  // Pomodoro: focus, short break, focus… with a long break after every 4th focus.
+  function pomoNext(p) {
+    if (p.phase === 'focus') {
+      const long = p.round % 4 === 0;
+      pomo = { phase: 'break', round: p.round, long, state: { ...light } };
+      setColor('#2fd27a', { exactBri: 150, label: long ? 'Long break' : 'Break', fade: true });
+      runTimer(prefs.breakMin * (long ? 3 : 1) * 60000);
+    } else {
+      if (p.state) applyState(p.state, true);
+      pomo = { phase: 'focus', round: p.round + 1 };
+      runTimer(prefs.timerMin * 60000);
+    }
+  }
+  function renderPomo() {
+    els.pomoSw.checked = prefs.pomo; els.breakMin.value = String(prefs.breakMin);
+    els.pomoInfo.hidden = !pomo;
+    if (pomo) els.pomoInfo.textContent = pomo.phase === 'focus'
+      ? 'Focus ' + pomo.round + ' · ' + (pomo.round % 4 === 0 ? 'long break' : 'break') + ' next'
+      : (pomo.long ? 'Long break' : 'Break') + ' · focus ' + (pomo.round + 1) + ' next';
+  }
+  els.pomoSw.addEventListener('change', () => { prefs.pomo = els.pomoSw.checked; savePrefs(); });
+  els.breakMin.addEventListener('change', () => { prefs.breakMin = +els.breakMin.value; savePrefs(); });
   async function alertFlash() {
     if (!ready) { log('The light isn’t connected, so it couldn’t flash.', true); return; }
     if (flashing) return;
@@ -2313,7 +2539,12 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       lab.append(inp, sp);
       return lab;
     }));
-    els.addFx.replaceChildren(...FX_LIST.map(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; return o; }));
+    fillFxSelect();
+  }
+  function fillFxSelect() {
+    const cur = els.addFx.value;
+    els.addFx.replaceChildren(...FX_LIST.filter(f => !f.live).map(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; return o; }));
+    if (cur && FX[cur]) els.addFx.value = cur;
   }
   function syncAddForm() {
     const a = els.addAction.value;
@@ -3142,7 +3373,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   els.devDrop.addEventListener('click', () => { try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {} });
   els.devDemo.addEventListener('click', async () => {
     els.devDlg.close();
-    for (const f of FX_LIST.filter(f => !f.timed)) {
+    for (const f of FX_LIST.filter(f => !f.timed && !f.live)) {
       startEffect(f.id); toast('Demo: ' + f.name);
       await sleep(5000);
       if (!fx || fx.id !== f.id) return;
@@ -3204,7 +3435,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   buildPalette(); buildWhites(); buildFx(); buildScenes(); buildDayPicker();
   renderRecents(); renderFavs();
   defaultAddTime(); syncAddForm(); renderSchedule();
-  renderTimerChips(); renderSleepChips();
+  renderTimerChips(); renderSleepChips(); renderPomo();
   setStatus('off'); renderDev(); renderInstall();
   els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway(); renderAwake();
   if (awayOn()) startIdle(false);

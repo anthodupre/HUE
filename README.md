@@ -40,6 +40,19 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
 - **Named favorites:** "Save current" asks for a name. Favorites appear under Scenes → Mine.
 - **Back up and restore:** Settings → Help saves favorites, schedule and settings to a file.
 
+## New modes (v3.1)
+
+- **Effect builder:** Effects → Mine → New effect. Pick 2 to 6 colors and a movement (Glide,
+  Hold & glide, Breathe, Twinkle), try it on the lamp, then save it with a name. Saved effects can be
+  scheduled and found in search.
+- **Screen sync:** Effects → Live. The lamp follows the main color on your screen, like a monitor
+  backlight. Chrome asks which screen or window to share.
+- **Music:** Effects → Live. The lamp pulses with the bass and changes color on the beat, using the
+  microphone. Nothing is recorded or sent anywhere.
+- **Pomodoro:** in Timers, the focus timer can chain breaks (green light) and focus periods, with a
+  long break after every fourth focus.
+- Effects are grouped: Everyday, Christmas, Cozy, Party, Live and Mine.
+
 ## Office features
 
 - **Follow the day:** an effect that shifts the white with the clock, warm in the morning and
