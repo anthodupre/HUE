@@ -53,6 +53,17 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
   long break after every fourth focus.
 - Effects are grouped: Everyday, Christmas, Cozy, Party, Live and Mine.
 
+## More functions (v3.2)
+
+- **Two-way sync:** when the lamp is changed from the Hue app, Alexa or a switch, Iris notices
+  and updates itself.
+- **Sunrise and sunset schedules:** a change can run at sunrise or sunset, shifted by up to an
+  hour. Follow the day also uses the real sun times. Both need your city in Settings → Weather.
+- **Colors from a photo:** Color → From a photo, or drop a picture on Iris. Click a color to send
+  it to the lamp, or turn the set into an effect.
+- **Busy light:** press B for a red "busy" light, and B again to go back.
+- **Undo:** Ctrl+Z returns to the previous color, white or power state.
+
 ## Office features
 
 - **Follow the day:** an effect that shifts the white with the clock, warm in the morning and

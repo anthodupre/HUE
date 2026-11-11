@@ -283,6 +283,10 @@ input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
 .scard.new .sw{ background:none; box-shadow:none; border:1.5px dashed var(--muted); display:grid; place-items:center; font-size:1.7rem; font-weight:300; color:var(--muted); line-height:1; }
 .scard.new .sw::after{ display:none; }
 .fxb-preview{ height:56px; border-radius:14px; background:var(--g); background-size:200% 200%; animation:drift 4s linear infinite; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06), inset 0 18px 22px -14px rgba(255,255,255,.4); }
+.photo-prev{ width:100%; max-height:min(240px, 30vh); object-fit:cover; border-radius:14px; display:block; box-shadow:inset 0 0 0 1px var(--line); }
+.photo-dots{ display:flex; flex-wrap:wrap; gap:10px; }
+.photo-dots .dot{ width:46px; flex:none; }
+body.dropping::after{ content:"Drop your picture"; position:fixed; inset:14px; z-index:80; display:grid; place-items:center; border:2px dashed var(--accent); border-radius:26px; background:color-mix(in srgb, var(--card-solid) 80%, transparent); font-family:var(--serif); font-size:2rem; pointer-events:none; }
 .fxb-colors{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
 .cards > .empty{ grid-column:1 / -1; padding:1.4rem 0; text-align:center; }
 .pane-top{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:clamp(10px, 1.8vh, 16px); }
@@ -557,7 +561,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
 
           <div class="side">
             <div class="card">
-              <div class="card-head"><h2>Palette</h2><span class="sub" style="margin:0">Always at full brightness</span></div>
+              <div class="card-head"><h2>Palette</h2><button id="photoBtn" class="btn small" title="Pick colors from a picture. You can also drop a picture anywhere on Iris.">From a photo</button><input type="file" id="photoFile" accept="image/*" hidden></div>
               <div class="palette" id="palette"></div>
             </div>
             <div class="card">
@@ -709,7 +713,13 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
           <div class="card form">
             <h2>Add a change</h2>
             <div class="row">
-              <label class="lbl">Time <input type="time" id="addTime" required></label>
+              <label class="lbl">When
+                <select id="addWhen"><option value="time">At a set time</option><option value="sunrise">At sunrise</option><option value="sunset">At sunset</option></select>
+              </label>
+              <label class="lbl" id="addTimeWrap">Time <input type="time" id="addTime" required></label>
+              <label class="lbl" id="addOffWrap" hidden>Shift
+                <select id="addOff"><option value="-60">1 h before</option><option value="-30">30 min before</option><option value="-15">15 min before</option><option value="0" selected>right then</option><option value="15">15 min after</option><option value="30">30 min after</option><option value="60">1 h after</option></select>
+              </label>
               <label class="lbl">Change to
                 <select id="addAction">
                   <option value="white">White</option>
@@ -839,6 +849,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
                 <dt><kbd>Esc</kbd></dt><dd>Stop the running effect</dd>
                 <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
                 <dt><kbd>M</kbd></dt><dd>Open the mini player</dd>
+                <dt><kbd>B</kbd></dt><dd>Busy light on or off</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo the last change</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search everything</dd>
               </dl>
             </details>
@@ -948,6 +960,17 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   </div>
 </dialog>
 
+<!-- Colors from a photo -->
+<dialog id="photoDlg" aria-labelledby="photoTitle" style="width:min(480px, calc(100vw - 32px))">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="photoTitle">Colors from your photo</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <img id="photoPrev" class="photo-prev" alt="Your picture">
+    <div class="photo-dots" id="photoDots"></div>
+    <p class="sub" style="margin:0">Click a color to send it to the lamp.</p>
+    <div class="row-btns" style="margin-top:0"><button id="photoFx" class="btn primary">Make an effect from these</button><button class="btn" data-close>Done</button></div>
+  </div>
+</dialog>
+
 <!-- Effect builder -->
 <dialog id="fxDlg" aria-labelledby="fxbTitle" style="width:min(480px, calc(100vw - 32px))">
   <div class="dlg">
@@ -1012,7 +1035,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v3.1', date: 'Nov 11, 2026' };
+  const VERSION = { name: 'v3.2', date: 'Nov 11, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -1045,7 +1068,15 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
-  const saveLight = () => store.set('light', light);
+  // Saving also records steady states for Undo (Ctrl+Z), once the light has settled.
+  const hist = []; let histT = null, undoing = false;
+  const snap = () => ({ on: light.on, bri: light.bri, mode: light.mode, hex: light.hex, kelvin: light.kelvin, label: light.label });
+  function recordHist() {
+    if (fx || flashing || alarm || breath) return;
+    const sn = snap(), top = hist[hist.length - 1];
+    if (!top || JSON.stringify(top) !== JSON.stringify(sn)) { hist.push(sn); if (hist.length > 25) hist.shift(); }
+  }
+  const saveLight = () => { store.set('light', light); if (!undoing) { clearTimeout(histT); histT = setTimeout(recordHist, 1200); } };
   const saveSchedule = () => store.set('schedule', schedule);
   const saveFavs = () => store.set('favorites', favorites);
   const savePrefs = () => store.set('settings', prefs);
@@ -1317,6 +1348,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       renderAuto();
       log('Connected to ' + (device.name || 'your light') + '.' + (missing.length ? ' Not available on this light: ' + missing.join(', ') + '.' : ''), false, 'ok', true);
       await readState();
+      watchLamp();
       if (afterConnect) { const f = afterConnect; afterConnect = null; f(); }
       else {
         if (!fx && light.on && light.fx && FX[light.fx] && !FX[light.fx].timed) { log('Resuming ' + FX[light.fx].name + '.'); startEffect(light.fx, { keepBri: true, quiet: true }); }
@@ -1475,6 +1507,37 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     }
   }
 
+  // ---------- Two-way sync: notice changes made from the Hue app, Alexa or a switch ----------
+  const lastWrite = {};
+  let extNote = 0;
+  function watchLamp() {
+    for (const key of ['power', 'bri', 'xy']) {
+      const c = chars[key];
+      if (!c || !c.properties || !c.properties.notify || typeof c.startNotifications !== 'function' || c.__iris) continue;
+      c.__iris = true;
+      c.addEventListener('characteristicvaluechanged', ev => { try { onLampChange(key, ev.target.value); } catch {} });
+      c.startNotifications().catch(() => {});
+    }
+  }
+  function onLampChange(key, v) {
+    if (!ready || !v || fx || flashing || fadeTok || writing || pending.size || awayState) return;
+    const now = performance.now();
+    if (now - (lastWrite[key] || 0) < 2500 || now - (lastWrite.any || 0) < 1200) return; // our own echo
+    let changed = false;
+    if (key === 'power') { const on = v.getUint8(0) === 1; if (on !== light.on) { light.on = on; changed = true; } }
+    else if (key === 'bri') { const b = clamp(v.getUint8(0), 1, 254); if (Math.abs(b - light.bri) > 2) { light.bri = b; out.bri = b; changed = true; } }
+    else if (key === 'xy' && v.byteLength >= 4) {
+      const x = v.getUint16(0, true) / 65535, y = v.getUint16(2, true) / 65535;
+      if (x > 0 && y > 0) {
+        const [a, b] = light.mode === 'white' ? kelvinToXY(light.kelvin) : hexToXY(light.hex);
+        if (Math.abs(a - x) + Math.abs(b - y) > .02) { light.mode = 'color'; light.hex = xyToHex(x, y); light.label = ''; out.xy = [x, y]; changed = true; }
+      }
+    }
+    if (!changed) return;
+    saveLight(); render(600);
+    if (now - extNote > 15000) { extNote = now; log('The lamp was changed from somewhere else. Iris followed.'); }
+  }
+
   // ---------- Write queue (one write at a time, latest value wins) ----------
   const pending = new Map();
   let writing = false, idleWaiters = [], confirmedWrite = false, seenErrors = new Set(), writeCount = 0;
@@ -1513,7 +1576,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
         if (!c) continue;
         try {
           await writeChar(c, bytes);
-          writeCount++;
+          writeCount++; lastWrite[key] = lastWrite.any = performance.now(); if (key === 'ct') lastWrite.xy = lastWrite.any;
           hidePairHelp();
           if (!confirmedWrite) { confirmedWrite = true; log('The light accepted the change.', false, 'ok'); }
         } catch (e) {
@@ -1865,8 +1928,20 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     return el <= holdS ? s.from : mixHex(s.from, s.to, ease((el - holdS) / glideS));
   }
   // Follow the day: warm in the early morning, bright cool white around midday, warm again at night.
-  const DAY_CURVE = [[0, 2200], [360, 2400], [480, 3800], [600, 5000], [720, 5500], [840, 5200], [1020, 4000], [1140, 3000], [1260, 2500], [1440, 2200]];
+  const DAY_CURVE0 = [[0, 2200], [360, 2400], [480, 3800], [600, 5000], [720, 5500], [840, 5200], [1020, 4000], [1140, 3000], [1260, 2500], [1440, 2200]];
+  // With a city set (Settings → Weather), the curve follows the real sunrise and sunset.
+  const sunMin = kind => (wx && wx[kind] != null) ? wx[kind] : (kind === 'sunrise' ? 420 : 1020);
+  function dayCurve() {
+    if (!(wx && wx.sunrise != null && wx.sunset != null && wx.sunset - wx.sunrise > 240)) return DAY_CURVE0;
+    const sr = wx.sunrise, ss = wx.sunset, noon = (sr + ss) / 2;
+    const pts = [[0, 2200], [sr - 60, 2300], [sr + 30, 3200], [Math.min(noon - 30, sr + 150), 4800], [noon, 5500], [Math.max(noon + 30, ss - 150), 5000], [ss - 30, 3600], [ss + 60, 2800], [ss + 180, 2300], [1440, 2200]];
+    const res = [];
+    for (const p of pts) if (!res.length || (p[0] > res[res.length - 1][0] && p[0] <= 1440)) res.push(p);
+    if (res[res.length - 1][0] < 1440) res.push([1440, 2200]);
+    return res;
+  }
   function dayKelvin(d = new Date()) {
+    const DAY_CURVE = dayCurve();
     const m = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
     for (let i = 1; i < DAY_CURVE.length; i++) {
       const [m1, k1] = DAY_CURVE[i];
@@ -2105,8 +2180,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     }));
     els.fxbHint.textContent = FX_STYLES[fxb.style][1];
   }
-  function openBuilder() {
-    fxb.colors = [light.mode === 'color' ? light.hex : '#ff7a1f', '#ff2d95', '#7a5cff']; fxb.style = 'glide';
+  function openBuilder(cols) {
+    fxb.colors = Array.isArray(cols) && cols.length >= 2 ? cols.slice(0, 6) : [light.mode === 'color' ? light.hex : '#ff7a1f', '#ff2d95', '#7a5cff']; fxb.style = 'glide';
     els.fxbName.value = '';
     renderBuilder(); openDialog(els.fxDlg);
   }
@@ -2453,7 +2528,10 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
   const todayStr = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  function entryDate(e, now) { const [h, m] = e.time.split(':').map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; }
+  const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const effTime = e => e.sun ? hhmm(clamp(Math.round(sunMin(e.sun) + (e.off || 0)), 0, 1439)) : e.time;
+  const sunLabel = e => !e.sun ? '' : (e.sun === 'sunrise' ? 'Sunrise' : 'Sunset') + (e.off ? (e.off < 0 ? ' − ' : ' + ') + (Math.abs(e.off) >= 60 ? Math.abs(e.off) / 60 + ' h' : Math.abs(e.off) + ' min') : '') + ' · ';
+  function entryDate(e, now) { const [h, m] = effTime(e).split(':').map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; }
   function fmtTime(t) { const [h, m] = t.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
   function daysLabel(days) {
     const s = [...days].sort().join(',');
@@ -2476,7 +2554,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   }
   function entryColor(e) { return e.action === 'white' ? kelvinToHex(e.kelvin) : e.action === 'fx' && FX[e.fx] ? 'linear-gradient(135deg,' + FX[e.fx].colors.join(',') + ')' : e.hex; }
   function renderSchedule() {
-    schedule.sort((a, b) => a.time.localeCompare(b.time));
+    schedule.sort((a, b) => effTime(a).localeCompare(effTime(b)));
     els.schedEmpty.hidden = schedule.length > 0;
     els.schedList.replaceChildren(...schedule.map(e => {
       const li = document.createElement('li');
@@ -2485,21 +2563,21 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       dot.className = 'sdot' + (e.action === 'off' ? ' off' : '');
       if (e.action !== 'off') dot.style.background = entryColor(e);
       const text = document.createElement('div'); text.className = 'sched-text';
-      const time = document.createElement('div'); time.className = 'sched-time'; time.textContent = fmtTime(e.time);
-      const desc = document.createElement('div'); desc.className = 'sched-desc'; desc.textContent = describeEntry(e) + ' · ' + daysLabel(e.days);
+      const time = document.createElement('div'); time.className = 'sched-time'; time.textContent = fmtTime(effTime(e));
+      const desc = document.createElement('div'); desc.className = 'sched-desc'; desc.textContent = sunLabel(e) + describeEntry(e) + ' · ' + daysLabel(e.days);
       text.append(time, desc);
       const actions = document.createElement('div'); actions.className = 'sched-actions';
       const sw = document.createElement('input');
       sw.type = 'checkbox'; sw.className = 'switch'; sw.checked = e.enabled;
-      sw.setAttribute('aria-label', 'Turn the ' + fmtTime(e.time) + ' change ' + (e.enabled ? 'off' : 'on'));
+      sw.setAttribute('aria-label', 'Turn the ' + fmtTime(effTime(e)) + ' change ' + (e.enabled ? 'off' : 'on'));
       sw.addEventListener('change', () => { e.enabled = sw.checked; saveSchedule(); renderSchedule(); });
       const tryBtn = document.createElement('button');
       tryBtn.className = 'btn small'; tryBtn.type = 'button'; tryBtn.textContent = 'Try';
       tryBtn.addEventListener('click', () => applyEntry(e));
       const del = document.createElement('button');
       del.className = 'icon-btn'; del.type = 'button'; del.textContent = '✕';
-      del.setAttribute('aria-label', 'Remove the ' + fmtTime(e.time) + ' change');
-      del.addEventListener('click', () => { schedule = schedule.filter(o => o.id !== e.id); saveSchedule(); renderSchedule(); log('Removed the ' + fmtTime(e.time) + ' change.'); });
+      del.setAttribute('aria-label', 'Remove the ' + fmtTime(effTime(e)) + ' change');
+      del.addEventListener('click', () => { schedule = schedule.filter(o => o.id !== e.id); saveSchedule(); renderSchedule(); log('Removed the ' + fmtTime(effTime(e)) + ' change.'); });
       actions.append(sw, tryBtn, del);
       li.append(dot, text, actions);
       return li;
@@ -2510,7 +2588,10 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     if (awayState) { awayState.entry = e; log('Scheduled change saved for when you’re back: ' + describeEntry(e) + '.'); return; }
     applyEntry(e); log('Scheduled change: ' + describeEntry(e) + '.', false, '', true);
   }
+  let wxTry = 0;
   function tickSchedule() {
+    // Keep sun times fresh for sunrise and sunset entries.
+    if (prefs.loc && Date.now() - wxTry > 30 * 60000 && (!wx || Date.now() - wx.at > 6 * 3600e3)) { wxTry = Date.now(); fetchWeather(true); }
     if (!ready) return;
     const now = new Date(), today = todayStr(now);
     for (const e of schedule) {
@@ -2523,13 +2604,13 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     const now = new Date(), today = todayStr(now);
     const due = schedule.filter(e => e.enabled && e.days.includes(now.getDay()) && entryDate(e, now) <= now);
     if (!due.length) return;
-    due.sort((a, b) => a.time.localeCompare(b.time));
+    due.sort((a, b) => effTime(a).localeCompare(effTime(b)));
     const last = due[due.length - 1];
     due.forEach(e => { e.lastRun = today; });
     saveSchedule();
     if (last.action === 'fx' && FX[last.fx] && FX[last.fx].timed) return;
     applyEntry(last);
-    log('Caught up on the ' + fmtTime(last.time) + ' change: ' + describeEntry(last) + '.');
+    log('Caught up on the ' + fmtTime(effTime(last)) + ' change: ' + describeEntry(last) + '.');
   }
   function buildDayPicker() {
     els.addDays.replaceChildren(...DAY_ORDER.map(d => {
@@ -2560,17 +2641,20 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   els.addKelvin.addEventListener('input', syncAddForm);
   els.addBri.addEventListener('input', syncAddForm);
   els.addBtn.addEventListener('click', () => {
-    const time = els.addTime.value;
+    const sun = els.addWhen.value === 'time' ? null : els.addWhen.value;
+    const time = sun ? '00:00' : els.addTime.value;
     const days = [...els.addDays.querySelectorAll('input:checked')].map(i => +i.value);
     if (!time) { showAddError('Pick a time for this change.'); return; }
     if (!days.length) { showAddError('Pick at least one day.'); return; }
     els.addError.hidden = true;
-    const e = { id: Date.now().toString(36), time, days, enabled: true, lastRun: null,
+    const e = { id: Date.now().toString(36), time, sun, off: sun ? +els.addOff.value : 0, days, enabled: true, lastRun: null,
       action: els.addAction.value, hex: els.addColor.value.toLowerCase(), kelvin: +els.addKelvin.value, bri: +els.addBri.value, fx: els.addFx.value };
     if (days.includes(new Date().getDay()) && entryDate(e, new Date()) <= new Date()) e.lastRun = todayStr();
     schedule.push(e); saveSchedule(); renderSchedule();
-    log('Added: ' + describeEntry(e) + ' at ' + fmtTime(time) + ', ' + daysLabel(days) + '.', false, '', true);
+    if (sun && !prefs.loc) toast('Set your city in Settings → Weather for exact sun times. Using 7:00 and 17:00 for now.');
+    log('Added: ' + describeEntry(e) + ' at ' + fmtTime(effTime(e)) + ', ' + daysLabel(days) + '.', false, '', true);
   });
+  els.addWhen.addEventListener('change', () => { const sun = els.addWhen.value !== 'time'; els.addTimeWrap.hidden = sun; els.addOffWrap.hidden = !sun; });
   function showAddError(msg) { els.addError.textContent = msg; els.addError.hidden = false; }
   els.catchUp.checked = prefs.catchUp;
   els.catchUp.addEventListener('change', () => { prefs.catchUp = els.catchUp.checked; savePrefs(); });
@@ -2913,11 +2997,14 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     const loc = prefs.loc; if (!loc) return null;
     if (!force && wx && wx.place === loc.name && Date.now() - wx.at < 15 * 60000) { renderWeather(); return wx; }
     try {
-      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon + '&current=temperature_2m,weather_code,is_day&timezone=auto');
+      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon + '&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&forecast_days=1&timezone=auto');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      wx = { temp: j.current.temperature_2m, code: j.current.weather_code, isDay: j.current.is_day === 1, at: Date.now(), place: loc.name };
+      const hm = v => { const m = /T(\d\d):(\d\d)/.exec(v || ''); return m ? +m[1] * 60 + +m[2] : null; };
+      wx = { temp: j.current.temperature_2m, code: j.current.weather_code, isDay: j.current.is_day === 1, at: Date.now(), place: loc.name,
+        sunrise: j.daily ? hm(j.daily.sunrise && j.daily.sunrise[0]) : null, sunset: j.daily ? hm(j.daily.sunset && j.daily.sunset[0]) : null };
       store.set('wx', wx);
+      renderSchedule();
     } catch (e) {
       els.wxNow.textContent = 'Couldn’t get the weather right now. Iris tries again in a few minutes.';
       return wx;
@@ -3267,6 +3354,9 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     if (prefs.mini && hasPip()) add('Open the mini player', 'App', null, openMini, 'pip small window');
     add(ready ? 'Disconnect the lamp' : 'Connect the lamp', 'App', null, () => ready ? disconnect() : connect(false), 'bluetooth');
     for (const th of ['auto', 'light', 'dark']) add('Theme: ' + th[0].toUpperCase() + th.slice(1), 'App', null, () => { prefs.theme = th; savePrefs(); applyTheme(); }, 'appearance mode');
+    add('Undo the last change', 'Action', null, undo, 'back previous');
+    add(busyPrev && light.label === 'Busy' ? 'Busy light off' : 'Busy light on', 'Action', '#ff1a1a', toggleBusy, 'do not disturb meeting call red');
+    add('Colors from a photo', 'Action', null, () => els.photoFile.click(), 'picture image');
     add('Diagnostics', 'Help', null, () => openDialog(els.diagDlg));
     add('Activity log', 'Help', null, () => openDialog(els.logDlg), 'history');
     add('Pairing steps', 'Help', null, () => { fillPairSteps(); pairAuto = false; openDialog(els.pairDlg); });
@@ -3310,8 +3400,88 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   });
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openCmd(); }
+    else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z') && !document.querySelector('dialog[open]') && !/^(input|select|textarea)$/i.test(e.target.tagName || '')) { e.preventDefault(); undo(); }
     else if (e.key === '/' && !e.ctrlKey && !e.metaKey && !document.querySelector('dialog[open]') && !/^(input|select|textarea)$/i.test(e.target.tagName || '')) { e.preventDefault(); openCmd(); }
   });
+
+  // ---------- Undo ----------
+  function undo() {
+    if (fx) { stopEffect(true); toast('Effect stopped.'); return; }
+    clearTimeout(histT); recordHist();
+    if (hist.length < 2) { toast('Nothing to undo.'); return; }
+    hist.pop();
+    const st = hist[hist.length - 1];
+    undoing = true;
+    try { if (st.on === false) setPower(false); else applyState({ ...st, on: true }, true); } finally { undoing = false; }
+    toast(st.on === false ? 'Undone: the lamp is off.' : 'Undone: back to ' + stateLabel(st) + '.');
+  }
+
+  // ---------- Busy light (B) ----------
+  let busyPrev = null;
+  function toggleBusy() {
+    if (busyPrev && light.label === 'Busy' && !fx) {
+      const p = busyPrev; busyPrev = null;
+      if (p.fxId && FX[p.fxId]) startEffect(p.fxId, { keepBri: true, quiet: true }); else if (p.state.on === false) setPower(false); else applyState(p.state, true);
+      toast('Busy light off.');
+    } else {
+      busyPrev = { state: { ...light }, fxId: fx && !fx.def.timed && !fx.def.live ? fx.id : null };
+      if (fx) stopEffect(false);
+      setColor('#ff1a1a', { exactBri: FULL, label: 'Busy', fade: true });
+      toast('Busy light on. Press B again to go back.');
+    }
+  }
+
+  // ---------- Colors from a photo ----------
+  let photoCols = [];
+  function extractColors(img) {
+    const N = 72, cv = document.createElement('canvas'); cv.width = cv.height = N;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    const sc = Math.max(N / img.naturalWidth, N / img.naturalHeight), w = img.naturalWidth * sc, h = img.naturalHeight * sc;
+    cx.drawImage(img, (N - w) / 2, (N - h) / 2, w, h);
+    const d = cx.getImageData(0, 0, N, N).data, BINS = 18;
+    const bins = Array.from({ length: BINS }, () => ({ w: 0, x: 0, y: 0, s: 0 }));
+    let total = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const [hh, ss, vv] = hexToHsv(rgbToHex(d[i], d[i + 1], d[i + 2]));
+      if (ss < .2 || vv < .22) continue;
+      const wt = ss * ss * vv, b = bins[Math.floor(hh / 360 * BINS) % BINS], a = hh * Math.PI / 180;
+      b.w += wt; b.x += Math.cos(a) * wt; b.y += Math.sin(a) * wt; b.s += ss * wt; total += wt;
+    }
+    // Strongest hues first, skipping neighbours of a hue already picked so the set stays varied.
+    const picked = [];
+    bins.map((b, i) => ({ ...b, i })).filter(b => b.w > total * .012).sort((a, b) => b.w - a.w).forEach(b => {
+      if (picked.length < 6 && !picked.some(q => { const d = Math.abs(q.i - b.i); return Math.min(d, BINS - d) <= 1; })) picked.push(b);
+    });
+    const cols = picked
+      .map(b => hsvToHex((Math.atan2(b.y, b.x) * 180 / Math.PI + 360) % 360, clamp(b.s / b.w * 1.15, .55, 1), 1));
+    return cols.length ? cols : ['#ffffff'];
+  }
+  function loadPhoto(file) {
+    if (!file || !/^image\//.test(file.type)) { toast('That file isn’t a picture.', true); return; }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      photoCols = extractColors(img);
+      els.photoPrev.src = url;
+      els.photoDots.replaceChildren(...photoCols.map(hex => {
+        const b = document.createElement('button'); b.className = 'dot'; b.type = 'button'; b.style.setProperty('--c', hex); b.title = hex.toUpperCase(); b.setAttribute('aria-label', 'Color ' + hex.toUpperCase());
+        b.addEventListener('click', () => { setColor(hex, { fade: true }); addRecent(hex); });
+        return b;
+      }));
+      els.photoFx.disabled = photoCols.length < 2;
+      openDialog(els.photoDlg);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('Couldn’t open that picture.', true); };
+    img.src = url;
+  }
+  els.photoBtn.addEventListener('click', () => els.photoFile.click());
+  els.photoFile.addEventListener('change', () => { const f = els.photoFile.files[0]; els.photoFile.value = ''; if (f) loadPhoto(f); });
+  els.photoFx.addEventListener('click', () => { els.photoDlg.close(); openBuilder(photoCols); });
+  const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  let dragN = 0;
+  document.addEventListener('dragenter', e => { if (hasFiles(e)) { dragN++; document.body.classList.add('dropping'); } });
+  document.addEventListener('dragleave', e => { if (hasFiles(e) && --dragN <= 0) { dragN = 0; document.body.classList.remove('dropping'); } });
+  document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragN = 0; document.body.classList.remove('dropping'); loadPhoto(e.dataTransfer.files[0]); });
 
   // ---------- Back up and restore ----------
   els.backupBtn.addEventListener('click', () => {
@@ -3407,6 +3577,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     else if (/^[1-7]$/.test(e.key)) showTab(TAB_ORDER[+e.key - 1]);
     else if ((e.key === 'c' || e.key === 'C') && !ready) connect(false);
     else if ((e.key === 'm' || e.key === 'M') && prefs.mini) openMini();
+    else if (e.key === 'b' || e.key === 'B') toggleBusy();
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------
@@ -3439,7 +3610,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   setStatus('off'); renderDev(); renderInstall();
   els.miniSw.checked = prefs.mini; renderStartSteps(); renderWeather(); renderAway(); renderAwake();
   if (awayOn()) startIdle(false);
-  if (prefs.loc && (!wx || Date.now() - wx.at > 15 * 60000)) fetchWeather(true);
+  if (prefs.loc && (!wx || wx.sunrise == null || Date.now() - wx.at > 15 * 60000)) fetchWeather(true);
   showTab(prefs.tab);
   render();
   runLaunchAction(location.href);
