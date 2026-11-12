@@ -283,6 +283,22 @@ input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
 .scard.new .sw{ background:none; box-shadow:none; border:1.5px dashed var(--muted); display:grid; place-items:center; font-size:1.7rem; font-weight:300; color:var(--muted); line-height:1; }
 .scard.new .sw::after{ display:none; }
 .fxb-preview{ height:56px; border-radius:14px; background:var(--g); background-size:200% 200%; animation:drift 4s linear infinite; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06), inset 0 18px 22px -14px rgba(255,255,255,.4); }
+.head-btns{ display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
+.tiles{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+.tile{ border:1px solid var(--line); border-radius:var(--r-m); padding:.7rem .85rem; background:var(--field); display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+.tile span, .tip-k{ font-size:.625rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.tile b{ font-family:var(--serif); font-weight:400; font-size:1.65rem; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chart{ position:relative; margin:0; }
+.chart-cap{ font-size:.8125rem; color:var(--muted); margin-bottom:.5rem; }
+.bars{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; height:170px; align-items:end; border-bottom:1px solid var(--line); padding-top:22px; }
+.bar-col{ position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; cursor:default; }
+.bar{ width:min(26px, 70%); border-radius:4px 4px 0 0; background:var(--accent); min-height:0; transition:height .6s var(--ease); }
+.bar-col:hover .bar{ filter:brightness(1.12); }
+.bar-val{ position:absolute; font-size:.72rem; font-weight:600; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums; transform:translateY(-100%); padding-bottom:3px; }
+.bar-days{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; margin-top:6px; font-size:.72rem; color:var(--muted); text-align:center; }
+.bar-days .today{ color:var(--ink); font-weight:700; }
+.chart-tip{ position:absolute; z-index:2; pointer-events:none; background:var(--ink); color:var(--card-solid); font-size:.75rem; padding:.3rem .55rem; border-radius:8px; white-space:nowrap; transform:translate(-50%, -110%); box-shadow:0 8px 18px -8px rgba(0,0,0,.5); }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .photo-prev{ width:100%; max-height:min(240px, 30vh); object-fit:cover; border-radius:14px; display:block; box-shadow:inset 0 0 0 1px var(--line); }
 .photo-dots{ display:flex; flex-wrap:wrap; gap:10px; }
 .photo-dots .dot{ width:46px; flex:none; }
@@ -561,7 +577,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
 
           <div class="side">
             <div class="card">
-              <div class="card-head"><h2>Palette</h2><button id="photoBtn" class="btn small" title="Pick colors from a picture. You can also drop a picture anywhere on Iris.">From a photo</button><input type="file" id="photoFile" accept="image/*" hidden></div>
+              <div class="card-head"><h2>Palette</h2><span class="head-btns"><button id="surpriseBtn" class="btn small" title="A random color you might like (R)">Surprise me</button><button id="photoBtn" class="btn small" title="Pick colors from a picture. You can also drop a picture anywhere on Iris.">From a photo</button><input type="file" id="photoFile" accept="image/*" hidden></span></div>
               <div class="palette" id="palette"></div>
             </div>
             <div class="card">
@@ -582,7 +598,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       <section class="pane" id="pane-scenes" role="tabpanel" aria-label="Scenes" hidden>
         <div class="pane-top">
           <div class="seg" id="sceneCats" role="tablist" aria-label="Scene category"></div>
-          <span class="sub" style="margin:0">A scene sets one steady color and fades into it. The lamp keeps it, even after you close Iris.</span>
+          <span class="sub" id="sceneNote" style="margin:0">A scene sets one steady color and fades into it. The lamp keeps it, even after you close Iris.</span>
         </div>
         <div class="cards" id="sceneGrid"></div>
       </section>
@@ -592,14 +608,16 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
         <div class="pane-top">
           <div class="seg" id="fxCats" role="tablist" aria-label="Effect category"></div>
           <div class="fx-bar">
-            <label>Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
-            <label>Sunrise and sunset last
+            <label id="volWrap" hidden>Volume <input type="range" id="scapeVol" min="0" max="100" step="1" value="50" aria-label="Sound volume"></label>
+            <label id="speedWrap">Speed <input type="range" id="fxSpeed" min="1" max="5" step="1" value="3" aria-label="Effect speed"></label>
+            <label id="durWrap">Sunrise and sunset last
               <select id="fxDur"><option value="1">1 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option></select>
             </label>
           </div>
           <button id="fxStop" class="btn small" disabled>Stop effect</button>
         </div>
         <p class="sub" id="fxNote" style="margin:0 0 .8rem" hidden>Screen sync follows the colors on your screen, like a backlight. Music listens through your microphone and moves with the beat. Nothing is recorded or sent anywhere.</p>
+        <p class="sub" id="scapeNote" style="margin:0 0 .8rem" hidden>Each soundscape plays a calm sound made on the fly by Iris, with a light that moves with it. With the sleep timer on, the sound fades out with the lamp.</p>
         <div class="cards" id="fxGrid"></div>
       </section>
 
@@ -627,6 +645,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
               </select>
             </div>
             <label class="check"><input type="checkbox" id="beep"> Also play a short sound</label>
+            <label class="check"><input type="checkbox" id="timerGlow"> The lamp shows the time left: it warms toward amber as the end nears</label>
             <label class="check"><input type="checkbox" id="pomoSw"> <span>Pomodoro: after each focus, take a
               <select id="breakMin" aria-label="Break length" style="min-height:28px; padding:.1rem .4rem"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="15">15</option></select>
               min break, then repeat</span></label>
@@ -833,6 +852,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
               <button id="openPair" class="btn small">Pairing steps</button>
               <button id="openDiag" class="btn small">Diagnostics</button>
               <button id="openLog" class="btn small">Activity</button>
+              <button id="openStats" class="btn small">Stats</button>
               <button id="openDev" class="btn small">DEV</button>
             </div>
             <div class="row-btns" style="margin-top:.5rem">
@@ -850,6 +870,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
                 <dt><kbd>C</kbd></dt><dd>Connect the lamp</dd>
                 <dt><kbd>M</kbd></dt><dd>Open the mini player</dd>
                 <dt><kbd>B</kbd></dt><dd>Busy light on or off</dd>
+                <dt><kbd>R</kbd></dt><dd>Surprise me with a color</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo the last change</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search everything</dd>
               </dl>
@@ -960,6 +981,26 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   </div>
 </dialog>
 
+<!-- Usage stats -->
+<dialog id="statsDlg" aria-labelledby="statsTitle" style="width:min(560px, calc(100vw - 32px))">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="statsTitle">Your week with Iris</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <div class="tiles">
+      <div class="tile"><span>Today</span><b id="stToday">0 min</b></div>
+      <div class="tile"><span>Last 7 days</span><b id="stWeek">0 min</b></div>
+      <div class="tile"><span>Energy, 7 days</span><b id="stEnergy">0 Wh</b></div>
+    </div>
+    <figure class="chart" aria-labelledby="chartCap">
+      <figcaption id="chartCap" class="chart-cap">Hours the lamp was on, per day</figcaption>
+      <div class="bars" id="stBars"></div>
+      <div class="chart-tip" id="stTip" hidden></div>
+      <table class="sr-only" id="stTable"></table>
+    </figure>
+    <p class="sub" style="margin:0"><span class="tip-k">Most used</span> <span id="stTop">Nothing yet</span></p>
+    <p class="sub" style="margin:0">Counted while Iris is open and connected. Energy is an estimate, about 10 W at full brightness.</p>
+  </div>
+</dialog>
+
 <!-- Colors from a photo -->
 <dialog id="photoDlg" aria-labelledby="photoTitle" style="width:min(480px, calc(100vw - 32px))">
   <div class="dlg">
@@ -1035,7 +1076,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v3.2', date: 'Nov 11, 2026' };
+  const VERSION = { name: 'v3.3', date: 'Nov 12, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -1065,7 +1106,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, scapeVol: 50, timerGlow: false, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   // Saving also records steady states for Undo (Ctrl+Z), once the light has settled.
@@ -1963,6 +2004,14 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       begin: () => screenBegin(), cleanup: () => liveStop('screen'), frame: (t, s, k, c) => screenFrame(c) },
     { id: 'music', name: 'Music', cat: 'Moves with the beat', colors: ['#ff00d4', '#7a00ff', '#00e1ff', '#ffe600'], ms: 90, live: true,
       begin: () => musicBegin(), cleanup: () => liveStop('music'), frame: (t, s, k, c) => musicFrame(c) },
+    { id: 's_rain', name: 'Rain', cat: 'Soft rain', colors: ['#2a3f9f', '#5a8cff', '#9cc8ff'], ms: 300, sound: 'rain',
+      begin: () => scapeStart('rain'), cleanup: () => scapeStop(), frame: (t) => ({ hex: mixHex('#2f4fd0', '#6fa0ff', .5 + .5 * Math.sin(t * .23)), f: .82 + .12 * Math.sin(t * .9) }) },
+    { id: 's_ocean', name: 'Ocean waves', cat: 'Slow swell', colors: ['#0060c8', '#00a8e0', '#7fe0ff'], ms: 160, sound: 'ocean',
+      begin: () => scapeStart('ocean'), cleanup: () => scapeStop(), frame: () => { const w = scapeWave(); return { hex: mixHex('#0050d0', '#30c8ff', w), f: .55 + .45 * w }; } },
+    { id: 's_fire', name: 'Crackling fire', cat: 'Cozy', colors: ['#ff3c00', '#ff7a12', '#ffb04a'], ms: 200, sound: 'fire',
+      begin: () => scapeStart('fire'), cleanup: () => scapeStop(), frame: (t, s) => { s.f = (s.f || .85) * .6 + rand(.7, 1) * .4; s.m = (s.m ?? .5) * .6 + Math.random() * .4; return { hex: mixHex('#ff3c00', '#ff9a1f', s.m), f: s.f, hold: rand(180, 420) }; } },
+    { id: 's_focus', name: 'Deep focus', cat: 'Brown noise', colors: [kelvinToHex(3600), kelvinToHex(4200), kelvinToHex(3600)], ms: 30000, steady: true, sound: 'focus',
+      begin: () => scapeStart('focus'), cleanup: () => scapeStop(), frame: () => ({ kelvin: 4000, note: 'Brown noise, steady neutral white' }) },
     { id: 'energize', name: 'Energy burst', cat: 'Wake up', colors: [SNOW, '#00e5ff', '#7a5cff'], ms: 200,
       frame: (t, s, k) => ({ hex: cycle([SNOW, '#00e5ff', SNOW, '#7a5cff'], t * Math.max(k, .55), 2.5, .5) }) },
     { id: 'twinkle', name: 'Christmas lights', cat: 'Christmas', colors: [RED, GREEN, GOLD, XBLUE], ms: 200,
@@ -2039,7 +2088,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     const durMin = opts.dur != null ? opts.dur : prefs.fxDur;
     fx = { id, def, token, t0: performance.now(), dur: Math.max(5, durMin * 60), startHex: displayHex(), startBri: light.bri, prev: { ...light } };
     if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; }
-    light.fx = def.timed || def.live || id === 'c_try' ? null : id;
+    light.fx = def.timed || def.live || def.sound || id === 'c_try' ? null : id;
     if (!light.on) { light.on = true; send('power', enc.power(true)); }
     saveLight();
     render();
@@ -2097,7 +2146,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     sw.style.setProperty('--g', 'linear-gradient(90deg,' + [...def.colors, def.colors[0]].join(',') + ')');
     const n = document.createElement('b'); n.textContent = label || def.name;
     const sm = document.createElement('small');
-    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.timed ? 'Timed' : def.steady || def.live ? 'Live' : def.custom ? 'Custom' : 'Animated';
+    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.sound ? 'Sound' : def.timed ? 'Timed' : def.steady || def.live ? 'Live' : def.custom ? 'Custom' : 'Animated';
     const cat = document.createElement('span'); cat.textContent = extra || def.cat;
     sm.append(tg, cat);
     b.append(sw, n, sm);
@@ -2105,8 +2154,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     return b;
   }
   // ----- Effect categories -----
-  const FX_GROUPS = [['everyday', 'Everyday'], ['christmas', 'Christmas'], ['cozy', 'Cozy'], ['party', 'Party'], ['live', 'Live'], ['mine', 'Mine']];
-  const grpOf = d => d.custom ? 'mine' : d.live ? 'live' : d.cat === 'Christmas' ? 'christmas' : d.cat === 'Cozy' ? 'cozy' : d.cat === 'Party' ? 'party' : 'everyday';
+  const FX_GROUPS = [['everyday', 'Everyday'], ['christmas', 'Christmas'], ['cozy', 'Cozy'], ['sound', 'Sound'], ['party', 'Party'], ['live', 'Live'], ['mine', 'Mine']];
+  const grpOf = d => d.custom ? 'mine' : d.sound ? 'sound' : d.live ? 'live' : d.cat === 'Christmas' ? 'christmas' : d.cat === 'Cozy' ? 'cozy' : d.cat === 'Party' ? 'party' : 'everyday';
   function buildFx() {
     if (!FX_GROUPS.some(g => g[0] === prefs.fxCat)) prefs.fxCat = 'everyday';
     els.fxCats.replaceChildren(...FX_GROUPS.map(([id, name]) => {
@@ -2133,6 +2182,9 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     }
     els.fxGrid.replaceChildren(...nodes);
     els.fxNote.hidden = prefs.fxCat !== 'live';
+    els.scapeNote.hidden = els.volWrap.hidden = prefs.fxCat !== 'sound';
+    els.speedWrap.hidden = prefs.fxCat === 'sound' || prefs.fxCat === 'live';
+    els.durWrap.hidden = prefs.fxCat !== 'everyday';
     markCards();
   }
 
@@ -2353,6 +2405,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     if (!SCENES[prefs.sceneCat]) prefs.sceneCat = 'christmas';
     els.sceneCats.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.cat === prefs.sceneCat)));
     els.sceneGrid.replaceChildren(...SCENES[prefs.sceneCat].list.map(sceneCard));
+    const xn = prefs.sceneCat === 'christmas' && typeof christmasNote === 'function' ? christmasNote() : '';
+    els.sceneNote.textContent = xn ? xn + '. Each scene fades in and stays, even after you close Iris.' : 'A scene sets one steady color and fades into it. The lamp keeps it, even after you close Iris.';
     if (!els.sceneGrid.children.length) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Nothing here yet. Pick a color you love in the Color tab, then click “Save current”.'; els.sceneGrid.append(e); }
     markCards();
   }
@@ -2403,9 +2457,24 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     els.timerBtn.textContent = 'Stop timer';
     renderPomo();
   }
+  // Timer glow: the lamp warms from its color toward amber as the focus time runs out.
+  let glow = null;
+  function startGlow(ms) { glow = prefs.timerGlow && !fx ? { base: { ...light }, start: Date.now(), total: ms, last: 0 } : null; }
+  function endGlow(restore) { const g = glow; glow = null; if (g && restore && !fx) applyState({ ...g.base, on: true }, true); return g; }
+  function tickGlow() {
+    if (!glow || !timerEnd || fx || flashing || !light.on) return;
+    const now = Date.now();
+    if (now - glow.last < 15000) return;
+    // The user picked something else: carry on from their new color.
+    if (glow.last && !/^Focus · /.test(light.label || '')) glow.base = { ...light };
+    glow.last = now;
+    const p = clamp((now - glow.start) / glow.total, 0, 1), left = Math.max(0, timerEnd - now);
+    setColor(mixHex(displayHex(glow.base), '#ff6a00', Math.pow(p, 1.3)), { exactBri: glow.base.bri, label: 'Focus · ' + Math.max(1, Math.ceil(left / 60000)) + ' min left', fade: true });
+  }
   function startTimer() {
     if (prefs.beep) ensureAudio();
     pomo = prefs.pomo ? { phase: 'focus', round: 1 } : null;
+    startGlow(prefs.timerMin * 60000);
     runTimer(prefs.timerMin * 60000);
     log('Focus timer started: ' + prefs.timerMin + ' min.' + (pomo ? ' Pomodoro is on.' : ''), false, '', true);
   }
@@ -2413,7 +2482,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     clearTimeout(timerTimeout);
     timerEnd = null;
     els.timerBtn.textContent = 'Start timer';
-    if (!keepPomo) { const p = pomo; pomo = null; if (p && p.phase === 'break' && p.state) applyState(p.state, true); }
+    if (!keepPomo) { const p = pomo; pomo = null; if (p && p.phase === 'break' && p.state) applyState(p.state, true); endGlow(true); }
     renderTimerChips(); updateTitle(); renderPomo();
     if (!silent) log('Focus timer stopped.');
   }
@@ -2423,7 +2492,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     stopTimer(true, true);
     log(p && p.phase === 'break' ? 'Break’s over. Back to it.' : 'Time’s up.', false, '', true);
     if (prefs.beep) beep();
-    await alertFlash();
+    const g = endGlow(false);
+    await alertFlash(g ? { ...g.base, on: true } : null);
     if (pomo !== p || timerEnd) return; // the user started or stopped something meanwhile
     if (p && prefs.pomo) pomoNext(p); else { pomo = null; renderPomo(); }
   }
@@ -2437,6 +2507,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     } else {
       if (p.state) applyState(p.state, true);
       pomo = { phase: 'focus', round: p.round + 1 };
+      setTimeout(() => startGlow(prefs.timerMin * 60000), Math.max(fadeMs(), 500) + 300);
       runTimer(prefs.timerMin * 60000);
     }
   }
@@ -2447,14 +2518,16 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       ? 'Focus ' + pomo.round + ' · ' + (pomo.round % 4 === 0 ? 'long break' : 'break') + ' next'
       : (pomo.long ? 'Long break' : 'Break') + ' · focus ' + (pomo.round + 1) + ' next';
   }
+  els.timerGlow.checked = prefs.timerGlow;
+  els.timerGlow.addEventListener('change', () => { prefs.timerGlow = els.timerGlow.checked; savePrefs(); if (timerEnd && (!pomo || pomo.phase === 'focus')) { if (prefs.timerGlow) { startGlow(timerEnd - Date.now()); } else endGlow(true); } });
   els.pomoSw.addEventListener('change', () => { prefs.pomo = els.pomoSw.checked; savePrefs(); });
   els.breakMin.addEventListener('change', () => { prefs.breakMin = +els.breakMin.value; savePrefs(); });
-  async function alertFlash() {
+  async function alertFlash(restoreTo) {
     if (!ready) { log('The light isn’t connected, so it couldn’t flash.', true); return; }
     if (flashing) return;
     flashing = true;
     if (fx) stopEffect(true);
-    const prev = { ...light };
+    const prev = restoreTo || { ...light };
     try {
       for (let i = 0; i < 4; i++) {
         setColor(prefs.alertColor, { exactBri: FULL, label: 'Time’s up' });
@@ -2505,6 +2578,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     if (timerEnd) {
       const left = timerEnd - Date.now();
       els.timerDisplay.textContent = fmtMS(left);
+      tickGlow();
       if (left <= 0) timerDone();
     }
     if (sleepEnd) {
@@ -2512,6 +2586,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       els.sleepDisplay.textContent = fmtMS(left);
       if (prefs.sleepFade && !sleepFading && light.on && left > 0 && left <= 5 * 60000) {
         sleepFading = true;
+        if (fx && fx.def.sound) scapeFadeOut(left);
         startEffect('sunset', { dur: left / 60000 });
       }
       if (left <= 0) {
@@ -2624,7 +2699,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   }
   function fillFxSelect() {
     const cur = els.addFx.value;
-    els.addFx.replaceChildren(...FX_LIST.filter(f => !f.live).map(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; return o; }));
+    els.addFx.replaceChildren(...FX_LIST.filter(f => !f.live && !f.sound).map(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; return o; }));
     if (cur && FX[cur]) els.addFx.value = cur;
   }
   function syncAddForm() {
@@ -2975,6 +3050,169 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   els.breathBtn.addEventListener('click', runBreath);
   els.burstBtn.addEventListener('click', () => startEffect('energize'));
   els.coldBtn.addEventListener('click', () => wideAwake('Cold white blast'));
+
+  // ---------- Soundscapes: sounds made on the fly with Web Audio, no files ----------
+  const scape = { master: null, srcs: [], timers: [], kind: null, t0: 0, detached: false };
+  function noiseBuf(type, sec = 6) {
+    const ac = audioCtx, len = Math.floor(ac.sampleRate * sec), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    let last = 0, b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (type === 'brown') { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; }
+      else if (type === 'pink') { b0 = .99765 * b0 + w * .0990460; b1 = .96300 * b1 + w * .2965164; b2 = .57000 * b2 + w * 1.0526913; d[i] = (b0 + b1 + b2 + w * .1848) * .11; }
+      else d[i] = w;
+    }
+    // Blend the end into the start so the loop has no click.
+    const n = Math.min(4096, len >> 3);
+    for (let i = 0; i < n; i++) { const a = i / n; d[len - n + i] = d[len - n + i] * (1 - a) + d[i] * a; }
+    return buf;
+  }
+  function loopSrc(type) { const s = audioCtx.createBufferSource(); s.buffer = noiseBuf(type); s.loop = true; s.start(); scape.srcs.push(s); return s; }
+  const chain = (...nodes) => { for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]); return nodes[nodes.length - 1]; };
+  const biq = (type, f, q = .7) => { const b = audioCtx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  const gainN = v => { const g = audioCtx.createGain(); g.gain.value = v; return g; };
+  let burstBuf = null;
+  function burst(filterType, freq, q, peak, decay) {
+    const ac = audioCtx, t = ac.currentTime;
+    if (!burstBuf) burstBuf = noiseBuf('white', .2);
+    const s = ac.createBufferSource(); s.buffer = burstBuf;
+    const g = ac.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(.0001, t + decay);
+    chain(s, biq(filterType, freq, q), g, scape.master);
+    s.start(t, Math.random() * .15, decay + .02);
+  }
+  // Wave level 0..1 for Ocean waves, shared by the sound and the light.
+  const scapeWave = () => .5 - .5 * Math.cos(2 * Math.PI * ((audioCtx ? audioCtx.currentTime : performance.now() / 1000) - scape.t0) / 9);
+  async function scapeStart(kind) {
+    ensureAudio();
+    if (!audioCtx) throw new Error('sound isn’t available in this browser');
+    try { await audioCtx.resume(); } catch {}
+    scapeStop(true);
+    const ac = audioCtx;
+    scape.kind = kind; scape.t0 = ac.currentTime; scape.detached = false;
+    scape.master = ac.createGain(); scape.master.gain.value = 0; scape.master.connect(ac.destination);
+    const M = scape.master;
+    if (kind === 'focus') chain(loopSrc('brown'), biq('lowpass', 520), gainN(.8), M);
+    else if (kind === 'rain') {
+      chain(loopSrc('pink'), biq('highpass', 450), biq('lowpass', 7000), gainN(1.4), M);
+      scape.timers.push(setInterval(() => { if (Math.random() < .55) burst('bandpass', rand(1800, 6500), 2.5, rand(.03, .12), rand(.02, .05)); }, 45));
+    } else if (kind === 'ocean') {
+      const body = gainN(0), foam = gainN(0);
+      chain(loopSrc('brown'), biq('lowpass', 850), body, M);
+      chain(loopSrc('pink'), biq('highpass', 1400), foam, M);
+      // One slow swell every 9 seconds drives both the sound and the light.
+      const swell = () => {
+        const t = ac.currentTime;
+        for (let i = 0; i < 4; i++) {
+          const st = scape.t0 + Math.ceil((t - scape.t0) / 9 + i) * 9;
+          body.gain.setTargetAtTime(.95, st - 4.5, 1.4); body.gain.setTargetAtTime(.18, st, 1.8);
+          foam.gain.setTargetAtTime(.22, st - 3.2, 1); foam.gain.setTargetAtTime(.02, st + .5, 1.4);
+        }
+      };
+      body.gain.setTargetAtTime(.5, ac.currentTime, 1);
+      swell(); scape.timers.push(setInterval(swell, 18000));
+    } else if (kind === 'fire') {
+      chain(loopSrc('brown'), biq('lowpass', 320), gainN(.85), M);
+      scape.timers.push(setInterval(() => {
+        if (Math.random() < .3) burst('highpass', rand(1600, 3200), .7, rand(.04, .3), rand(.006, .02));
+        if (Math.random() < .02) burst('bandpass', rand(500, 1100), 1.2, rand(.25, .5), rand(.05, .1));
+      }, 38));
+    }
+    M.gain.setTargetAtTime(prefs.scapeVol / 100, ac.currentTime, .7);
+  }
+  function scapeStop(now) {
+    if (scape.detached && !now) return; // the sleep timer is fading it out
+    scape.timers.forEach(clearInterval); scape.timers = [];
+    const srcs = scape.srcs, M = scape.master;
+    scape.srcs = []; scape.master = null; scape.kind = null; scape.detached = false;
+    if (!M) return;
+    try { M.gain.setTargetAtTime(0, audioCtx.currentTime, now ? .05 : .3); } catch {}
+    setTimeout(() => { srcs.forEach(s => { try { s.stop(); } catch {} }); try { M.disconnect(); } catch {} }, now ? 200 : 1500);
+  }
+  // Sleep timer: keep the sound and let it fade out with the lamp.
+  function scapeFadeOut(ms) {
+    if (!scape.master) return;
+    scape.detached = true;
+    scape.master.gain.setTargetAtTime(0, audioCtx.currentTime, Math.max(1, ms / 1000 / 4));
+    setTimeout(() => { scape.detached = false; scapeStop(true); }, ms + 1500);
+  }
+  els.scapeVol.value = prefs.scapeVol;
+  els.scapeVol.addEventListener('input', () => {
+    prefs.scapeVol = +els.scapeVol.value; savePrefs();
+    if (scape.master && !scape.detached) scape.master.gain.setTargetAtTime(prefs.scapeVol / 100, audioCtx.currentTime, .1);
+  });
+
+  // ---------- Usage stats ----------
+  let usage = store.get('usage', {});
+  function trackUsage() {
+    if (!ready || !light.on || (awayState && prefs.awayDo === 'off')) return;
+    const k = todayStr(), u = usage[k] || (usage[k] = { m: 0, e: 0, top: {} });
+    const bri = fx && fxView ? fxView.bri : light.bri;
+    u.m += 1;
+    u.e += (1 + 9 * bri / 254) / 60; // watt-hours: about 10 W at full brightness
+    const lab = fx ? fx.def.name : light.label || (light.mode === 'white' ? light.kelvin + 'K white' : 'Custom color');
+    u.top[lab] = (u.top[lab] || 0) + 1;
+    const keys = Object.keys(usage).sort();
+    while (keys.length > 60) delete usage[keys.shift()];
+    store.set('usage', usage);
+  }
+  setInterval(trackUsage, 60000);
+  const fmtDur = m => m < 60 ? Math.round(m) + ' min' : Math.floor(m / 60) + ' h' + (m % 60 >= 1 ? ' ' + Math.round(m % 60) + ' min' : '');
+  function renderStats() {
+    const days = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push(d); }
+    const rows = days.map(d => ({ d, u: usage[todayStr(d)] || { m: 0, e: 0, top: {} } }));
+    const week = rows.reduce((a, r) => a + r.u.m, 0), wh = rows.reduce((a, r) => a + r.u.e, 0);
+    els.stToday.textContent = fmtDur(rows[6].u.m);
+    els.stWeek.textContent = fmtDur(week);
+    els.stEnergy.textContent = wh < 1000 ? Math.round(wh) + ' Wh' : (wh / 1000).toFixed(2) + ' kWh';
+    const top = {};
+    rows.forEach(r => Object.entries(r.u.top).forEach(([k, v]) => { top[k] = (top[k] || 0) + v; }));
+    const best = Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    els.stTop.textContent = best.length ? best.map(([k, v]) => k + ' (' + fmtDur(v) + ')').join(' · ') : 'Nothing yet. Leave Iris open while the lamp is on.';
+    const max = Math.max(60, ...rows.map(r => r.u.m));
+    const long = d => d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    const bars = rows.map((r, i) => {
+      const col = document.createElement('div'); col.className = 'bar-col';
+      const bar = document.createElement('div'); bar.className = 'bar'; bar.style.height = (r.u.m / max * 100) + '%';
+      col.append(bar);
+      if (i === 6 && r.u.m > 0) { const v = document.createElement('span'); v.className = 'bar-val'; v.textContent = fmtDur(r.u.m); v.style.bottom = (r.u.m / max * 100) + '%'; col.append(v); }
+      col.addEventListener('pointerenter', () => {
+        els.stTip.textContent = long(r.d) + ' · ' + (r.u.m ? fmtDur(r.u.m) : 'off');
+        const cr = col.getBoundingClientRect(), fr = els.stBars.parentElement.getBoundingClientRect();
+        els.stTip.style.left = (cr.left - fr.left + cr.width / 2) + 'px';
+        els.stTip.style.top = (els.stBars.offsetTop + els.stBars.offsetHeight * (1 - r.u.m / max)) + 'px';
+        els.stTip.hidden = false;
+      });
+      col.addEventListener('pointerleave', () => { els.stTip.hidden = true; });
+      return col;
+    });
+    els.stBars.replaceChildren(...bars);
+    let dl = els.stBars.nextElementSibling;
+    if (!dl || !dl.classList.contains('bar-days')) { dl = document.createElement('div'); dl.className = 'bar-days'; els.stBars.after(dl); }
+    dl.replaceChildren(...rows.map((r, i) => { const s2 = document.createElement('span'); s2.textContent = i === 6 ? 'Today' : r.d.toLocaleDateString([], { weekday: 'short' }); if (i === 6) s2.className = 'today'; return s2; }));
+    els.stTable.innerHTML = '<caption>Hours the lamp was on, per day</caption><tr><th>Day</th><th>Time on</th></tr>' + rows.map(r => '<tr><td>' + long(r.d) + '</td><td>' + fmtDur(r.u.m) + '</td></tr>').join('');
+  }
+  function openStats() { trackUsageFlush(); renderStats(); openDialog(els.statsDlg); }
+  function trackUsageFlush() { store.set('usage', usage); }
+  els.openStats.addEventListener('click', openStats);
+
+  // ---------- Surprise me ----------
+  function surprise() {
+    const [lastH] = hexToHsv(light.mode === 'color' ? light.hex : '#ff0000');
+    let h; do { h = rand(0, 360); } while (Math.abs(((h - lastH + 540) % 360) - 180) < 50);
+    const hex = hsvToHex(h, rand(.72, 1), 1);
+    setColor(hex, { fade: true }); addRecent(hex);
+  }
+  els.surpriseBtn.addEventListener('click', surprise);
+
+  // ---------- Christmas countdown ----------
+  function christmasNote() {
+    const now = new Date(), xmas = new Date(now.getFullYear(), 11, 25);
+    const days = Math.ceil((xmas - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+    if (days === 0) return 'Merry Christmas!';
+    if (days < 0 || days > 60) return '';
+    return days === 1 ? 'Christmas is tomorrow!' : days + ' days until Christmas';
+  }
 
   // ---------- Weather (Open-Meteo, free, no account) ----------
   let wx = store.get('wx', null);
@@ -3357,6 +3595,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     add('Undo the last change', 'Action', null, undo, 'back previous');
     add(busyPrev && light.label === 'Busy' ? 'Busy light off' : 'Busy light on', 'Action', '#ff1a1a', toggleBusy, 'do not disturb meeting call red');
     add('Colors from a photo', 'Action', null, () => els.photoFile.click(), 'picture image');
+    add('Surprise me', 'Action', 'conic-gradient(#ff3d6e, #ffd23d, #3dd6ff, #7a5cff, #ff3d6e)', surprise, 'random color');
+    add('Usage stats', 'Help', null, openStats, 'hours energy week');
     add('Diagnostics', 'Help', null, () => openDialog(els.diagDlg));
     add('Activity log', 'Help', null, () => openDialog(els.logDlg), 'history');
     add('Pairing steps', 'Help', null, () => { fillPairSteps(); pairAuto = false; openDialog(els.pairDlg); });
@@ -3543,7 +3783,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   els.devDrop.addEventListener('click', () => { try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch {} });
   els.devDemo.addEventListener('click', async () => {
     els.devDlg.close();
-    for (const f of FX_LIST.filter(f => !f.timed && !f.live)) {
+    for (const f of FX_LIST.filter(f => !f.timed && !f.live && !f.sound)) {
       startEffect(f.id); toast('Demo: ' + f.name);
       await sleep(5000);
       if (!fx || fx.id !== f.id) return;
@@ -3578,6 +3818,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     else if ((e.key === 'c' || e.key === 'C') && !ready) connect(false);
     else if ((e.key === 'm' || e.key === 'M') && prefs.mini) openMini();
     else if (e.key === 'b' || e.key === 'B') toggleBusy();
+    else if (e.key === 'r' || e.key === 'R') surprise();
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------

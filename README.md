@@ -64,6 +64,17 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
 - **Busy light:** press B for a red "busy" light, and B again to go back.
 - **Undo:** Ctrl+Z returns to the previous color, white or power state.
 
+## Sound, stats and more (v3.3)
+
+- **Soundscapes:** Effects → Sound. Rain, Ocean waves, Crackling fire and Deep focus (brown noise),
+  each with a matching light. The sounds are generated live by Iris, with a volume slider. With the
+  sleep timer on, the sound fades out with the lamp.
+- **Timer glow:** in Timers, the lamp can show the focus time left by warming toward amber.
+- **Usage stats:** Settings → Help → Stats shows time on per day this week, an energy estimate and
+  your most used scenes and effects.
+- **Surprise me:** Color → Surprise me, or press R, for a random color.
+- **Christmas countdown** in Scenes → Christmas.
+
 ## Office features
 
 - **Follow the day:** an effect that shifts the white with the clock, warm in the morning and
