@@ -75,6 +75,19 @@ Right-clicking the taskbar icon offers shortcuts: Christmas lights, Fireplace, F
 - **Surprise me:** Color → Surprise me, or press R, for a random color.
 - **Christmas countdown** in Scenes → Christmas.
 
+## Voice, routines and sharing (v3.4)
+
+- **Voice control:** press V or the microphone button, then speak in French or English: "rouge à 50 %",
+  "feu de foyer", "blanc chaud", "plus fort", "éteins", "arrête". Chrome sends the audio to its
+  speech service to understand it, so it needs an internet connection.
+- **Routines:** Effects → Routines. Wind down (45 min, ends off), Evening glide (2 h), Movie night
+  (2 h, ends off) and Deep work hour (1 h). Each glides between steps and can be scheduled.
+- **Share links:** hover a favorite in Scenes → Mine or an effect in Effects → Mine and click the
+  arrow to copy a link. Opening the link in Iris offers to add it.
+- **Holidays scenes:** New Year, Valentine, St. Patrick, Fête nationale, Halloween and more.
+- **Hourly pulse:** Settings → Appearance. The lamp dips softly at the start of each hour.
+- **Sun theme:** Settings → Appearance → Sun. Dark from sunset to sunrise.
+
 ## Office features
 
 - **Follow the day:** an effect that shifts the white with the clock, warm in the morning and

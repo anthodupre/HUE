@@ -283,6 +283,15 @@ input[type=color]::-moz-color-swatch{ border:0; border-radius:50%; }
 .scard.new .sw{ background:none; box-shadow:none; border:1.5px dashed var(--muted); display:grid; place-items:center; font-size:1.7rem; font-weight:300; color:var(--muted); line-height:1; }
 .scard.new .sw::after{ display:none; }
 .fxb-preview{ height:56px; border-radius:14px; background:var(--g); background-size:200% 200%; animation:drift 4s linear infinite; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06), inset 0 18px 22px -14px rgba(255,255,255,.4); }
+.voice-pill{ position:fixed; left:50%; top:calc(var(--tb) + 18px); z-index:70; transform:translateX(-50%); display:flex; align-items:center; gap:.6rem; max-width:calc(100vw - 32px);
+  padding:.6rem 1.1rem; border-radius:999px; background:var(--ink); color:var(--card-solid); font-size:.9375rem; box-shadow:0 16px 34px -14px rgba(0,0,0,.6); animation:dlgIn .3s var(--ease); }
+.voice-pill span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.voice-pill i{ width:10px; height:10px; border-radius:50%; background:#ff4d4d; flex:none; animation:blink 1s infinite; }
+#voiceBtn.on{ color:#fff; background:#d93636; border-color:#d93636; }
+.fav .share{ position:absolute; top:-5px; left:-5px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--card-solid); color:var(--muted); display:none; place-items:center; cursor:pointer; padding:0; z-index:1; }
+.fav .share svg{ width:12px; height:12px; }
+.fav:hover .share, .fav:focus-within .share{ display:grid; }
+@media (hover:none){ .fav .share{ display:grid; } }
 .head-btns{ display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
 .tiles{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
 .tile{ border:1px solid var(--line); border-radius:var(--r-m); padding:.7rem .85rem; background:var(--field); display:flex; flex-direction:column; gap:.15rem; min-width:0; }
@@ -480,6 +489,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   .panes{ order:1; margin:0 0 10px; }
   .palette{ grid-template-columns:repeat(9, minmax(0,1fr)); }
   .scard small .tag + *{ display:none; }
+  .fav .share{ display:grid; }
   .cards{ grid-template-columns:repeat(auto-fill, minmax(98px, 1fr)); gap:8px; }
   .sw{ height:clamp(34px, 5.6vh, 56px); }
   .pane-top > .sub, #pane-effects > .sub{ display:none; }
@@ -504,6 +514,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
         <p class="version"><span id="version"></span><span id="devBadge" class="dev-badge" hidden>DEV</span></p>
       </div>
       <div class="brand-right">
+        <button id="voiceBtn" class="icon-btn" title="Speak to Iris (V)" aria-label="Speak to Iris" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
         <button id="cmdBtn" class="cmd-pill" title="Search scenes, effects and actions (Ctrl+K)" aria-label="Search scenes, effects and actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
         <span id="status" class="status" data-state="off" role="status">Not connected</span>
         <button id="miniBtn" class="icon-btn" title="Mini player (M)" aria-label="Open the mini player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor" stroke="none"/></svg></button>
@@ -794,9 +805,10 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
           <div class="card">
             <h2>Appearance</h2>
             <div class="set-row"><span>Theme</span>
-              <div class="seg" id="themeSeg"><button data-theme="auto">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+              <div class="seg" id="themeSeg"><button data-theme="auto" title="Follow Windows">Auto</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button><button data-theme="sun" title="Dark from sunset to sunrise">Sun</button></div>
             </div>
             <div class="set-row"><span>Glow the page in the lamp’s color</span><input type="checkbox" class="switch" id="haloSw" checked aria-label="Glow the page"></div>
+            <div class="set-row"><span>Mark each hour with a soft pulse of the lamp</span><input type="checkbox" class="switch" id="hourSw" aria-label="Pulse on the hour"></div>
           </div>
 
           <div class="card">
@@ -871,6 +883,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
                 <dt><kbd>M</kbd></dt><dd>Open the mini player</dd>
                 <dt><kbd>B</kbd></dt><dd>Busy light on or off</dd>
                 <dt><kbd>R</kbd></dt><dd>Surprise me with a color</dd>
+                <dt><kbd>V</kbd></dt><dd>Speak to Iris</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo the last change</dd>
                 <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search everything</dd>
               </dl>
@@ -981,6 +994,19 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   </div>
 </dialog>
 
+<!-- Voice listening -->
+<div id="voicePill" class="voice-pill" role="status" aria-live="polite" hidden><i></i><span id="voiceText">Listening…</span></div>
+
+<!-- Shared item -->
+<dialog id="shareDlg" aria-labelledby="shareTitle" style="width:min(440px, calc(100vw - 32px))">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="shareTitle">Someone shared a light</h2><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <div class="fxb-preview" id="sharePrev"></div>
+    <p id="shareText"></p>
+    <div class="row-btns" style="margin-top:0"><button id="shareAdd" class="btn primary">Add it</button><button id="shareTry" class="btn">Try it</button><button class="btn" data-close>No thanks</button></div>
+  </div>
+</dialog>
+
 <!-- Usage stats -->
 <dialog id="statsDlg" aria-labelledby="statsTitle" style="width:min(560px, calc(100vw - 32px))">
   <div class="dlg">
@@ -1076,7 +1102,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   'use strict';
 
   // Bump on every change so you can see when the page has refreshed.
-  const VERSION = { name: 'v3.3', date: 'Nov 12, 2026' };
+  const VERSION = { name: 'v3.4', date: 'Nov 12, 2026' };
 
   // ---------- Hue Bluetooth (GATT) ----------
   const SVC = '932c32bd-0000-47a2-835a-a8d455b859dd';
@@ -1106,7 +1132,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   let recents = store.get('recents', []);
   const prefs = Object.assign({
     catchUp: true, alertColor: '#ff2a2a', afterAlert: 'restore', beep: false, timerMin: 25,
-    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, scapeVol: 50, timerGlow: false, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
+    sleepMin: 30, sleepFade: true, fullBri: true, autoConnect: true, fade: 3000, fxSpeed2: 2, fxCat: 'everyday', pomo: false, breakMin: 5, scapeVol: 50, timerGlow: false, hourPulse: false, mini: true, away: false, awayMin: 15, awayDo: 'off', awayLock: null, awayIdle: false, awakeEvery: 20, awakeNudge: 'check', awakeAlarm: true, awakeLock: true, napMin: 20, breathPace: 'steady', breathLen: 1, breathSound: false, loc: null, wxStyle: 'sky', theme: 'auto', halo: true,
     fxSpeed: 3, fxDur: 10, tab: 'color', sceneCat: 'christmas', dev: false, sim: false
   }, store.get('settings', {}));
   // Saving also records steady states for Undo (Ctrl+Z), once the light has settled.
@@ -1990,6 +2016,45 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     }
     return 2200;
   }
+  // ----- Routines: a few light steps that glide into each other over a set time -----
+  const ROUTINES = [
+    { id: 'r_wind', name: 'Wind down', end: 'off', steps: [{ k: 4000, b: 254, m: 10, n: 'Neutral white' }, { k: 3000, b: 220, m: 10, n: 'Soft white' }, { k: 2400, b: 160, m: 15, n: 'Warm' }, { k: 2000, b: 70, m: 10, n: 'Candle, dim' }] },
+    { id: 'r_glide', name: 'Evening glide', end: 'stay', steps: [{ k: 5000, b: 254, m: 30, n: 'Daylight' }, { k: 4000, b: 254, m: 30, n: 'Neutral' }, { k: 3000, b: 254, m: 30, n: 'Soft white' }, { k: 2500, b: 254, m: 30, n: 'Warm' }] },
+    { id: 'r_movie', name: 'Movie night', end: 'off', steps: [{ h: '#3a1fff', b: 140, m: 5, n: 'Lights down' }, { h: '#4b22c8', b: 50, m: 110, n: 'Feature' }, { h: '#ff7a1f', b: 150, m: 5, n: 'End credits' }] },
+    { id: 'r_deep', name: 'Deep work hour', end: 'stay', steps: [{ k: 5500, b: 254, m: 25, n: 'Focus' }, { k: 6500, b: 254, m: 5, n: 'Boost' }, { k: 5500, b: 254, m: 25, n: 'Focus' }, { h: '#2fd27a', b: 200, m: 5, n: 'Done, take a break' }] }
+  ];
+  const stepHex = st => st.h || kelvinToHex(st.k);
+  function routineDef(r) {
+    const total = r.steps.reduce((a, st) => a + st.m, 0);
+    const lenTxt = total >= 60 ? (total / 60) + ' h' : total + ' min';
+    return {
+      id: r.id, name: r.name, cat: lenTxt + (r.end === 'off' ? ', ends off' : ''), colors: r.steps.map(stepHex), ms: 2000, timed: true, routine: true, durMin: total,
+      frame: (t, s, k, c) => {
+        if (t >= c.dur) return { done: true };
+        const scale = c.dur / (total * 60);
+        let acc = 0;
+        for (let i = 0; i < r.steps.length; i++) {
+          const st = r.steps[i], len = st.m * 60 * scale;
+          if (t < acc + len || i === r.steps.length - 1) {
+            const nx = r.steps[i + 1], glideS = Math.min(90 * scale, len * .4), into = t - acc - (len - glideS);
+            const left = c.dur - t, note = st.n + ' · ' + fmtMS(left * 1000) + ' left';
+            if (!nx || into <= 0) return st.k ? { kelvin: st.k, f: st.b / 254, abs: true, note } : { hex: st.h, f: st.b / 254, abs: true, note };
+            const p = ease(into / glideS), b = (st.b + (nx.b - st.b) * p) / 254;
+            if (st.k && nx.k) return { kelvin: Math.round(st.k + (nx.k - st.k) * p), f: b, abs: true, note };
+            return { hex: mixHex(stepHex(st), stepHex(nx), p), f: b, abs: true, note };
+          }
+          acc += len;
+        }
+        return { done: true };
+      },
+      end: () => {
+        const last = r.steps[r.steps.length - 1];
+        if (r.end === 'off') setPower(false);
+        else if (last.k) setWhite(last.k, { exactBri: last.b, label: r.name, fade: true });
+        else setColor(last.h, { exactBri: last.b, label: r.name, fade: true });
+      }
+    };
+  }
   const FX_LIST = [
     { id: 'daylight', name: 'Follow the day', cat: 'All day', colors: [kelvinToHex(2400), kelvinToHex(5500), kelvinToHex(2200)], ms: 30000, steady: true,
       frame: () => { const k = dayKelvin(); return { kelvin: k, note: k + 'K · ' + (k < dayKelvin(new Date(Date.now() + 3600e3)) ? 'turning whiter' : k > dayKelvin(new Date(Date.now() + 3600e3)) ? 'turning warmer' : 'steady') }; } },
@@ -2004,6 +2069,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       begin: () => screenBegin(), cleanup: () => liveStop('screen'), frame: (t, s, k, c) => screenFrame(c) },
     { id: 'music', name: 'Music', cat: 'Moves with the beat', colors: ['#ff00d4', '#7a00ff', '#00e1ff', '#ffe600'], ms: 90, live: true,
       begin: () => musicBegin(), cleanup: () => liveStop('music'), frame: (t, s, k, c) => musicFrame(c) },
+    ...ROUTINES.map(routineDef),
     { id: 's_rain', name: 'Rain', cat: 'Soft rain', colors: ['#2a3f9f', '#5a8cff', '#9cc8ff'], ms: 300, sound: 'rain',
       begin: () => scapeStart('rain'), cleanup: () => scapeStop(), frame: (t) => ({ hex: mixHex('#2f4fd0', '#6fa0ff', .5 + .5 * Math.sin(t * .23)), f: .82 + .12 * Math.sin(t * .9) }) },
     { id: 's_ocean', name: 'Ocean waves', cat: 'Slow swell', colors: ['#0060c8', '#00a8e0', '#7fe0ff'], ms: 160, sound: 'ocean',
@@ -2085,7 +2151,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       if (fx) stopEffect(false);
     }
     const token = {};
-    const durMin = opts.dur != null ? opts.dur : prefs.fxDur;
+    const durMin = opts.dur != null ? opts.dur : def.durMin != null ? def.durMin : prefs.fxDur;
     fx = { id, def, token, t0: performance.now(), dur: Math.max(5, durMin * 60), startHex: displayHex(), startBri: light.bri, prev: { ...light } };
     if (prefs.fullBri && !def.timed && !opts.keepBri) { light.bri = FULL; }
     light.fx = def.timed || def.live || def.sound || id === 'c_try' ? null : id;
@@ -2095,12 +2161,12 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     if (!opts.quiet) log('Effect started: ' + def.name + '.');
     const st = {};
     const showNote = (o, t) => {
-      const note = def.timed ? fmtMS((fx.dur - t) * 1000) + ' left' : o && o.note;
+      const note = o && o.note ? o.note : def.timed ? fmtMS((fx.dur - t) * 1000) + ' left' : '';
       els.nowExtra.hidden = !note; els.nowExtra.textContent = note || '';
       renderMini();
     };
     // Glide into the effect's first color instead of jumping to it.
-    if (!def.timed && !def.live && fadeMs()) {
+    if ((!def.timed || def.routine) && !def.live && fadeMs()) {
       const first = def.frame(0, st, speedMul(), fx);
       if (first && !first.done) {
         const ms = Math.min(fadeMs(), 4000);
@@ -2146,7 +2212,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     sw.style.setProperty('--g', 'linear-gradient(90deg,' + [...def.colors, def.colors[0]].join(',') + ')');
     const n = document.createElement('b'); n.textContent = label || def.name;
     const sm = document.createElement('small');
-    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.sound ? 'Sound' : def.timed ? 'Timed' : def.steady || def.live ? 'Live' : def.custom ? 'Custom' : 'Animated';
+    const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = def.routine ? 'Routine' : def.sound ? 'Sound' : def.timed ? 'Timed' : def.steady || def.live ? 'Live' : def.custom ? 'Custom' : 'Animated';
     const cat = document.createElement('span'); cat.textContent = extra || def.cat;
     sm.append(tg, cat);
     b.append(sw, n, sm);
@@ -2154,8 +2220,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     return b;
   }
   // ----- Effect categories -----
-  const FX_GROUPS = [['everyday', 'Everyday'], ['christmas', 'Christmas'], ['cozy', 'Cozy'], ['sound', 'Sound'], ['party', 'Party'], ['live', 'Live'], ['mine', 'Mine']];
-  const grpOf = d => d.custom ? 'mine' : d.sound ? 'sound' : d.live ? 'live' : d.cat === 'Christmas' ? 'christmas' : d.cat === 'Cozy' ? 'cozy' : d.cat === 'Party' ? 'party' : 'everyday';
+  const FX_GROUPS = [['everyday', 'Everyday'], ['routines', 'Routines'], ['christmas', 'Christmas'], ['cozy', 'Cozy'], ['sound', 'Sound'], ['party', 'Party'], ['live', 'Live'], ['mine', 'Mine']];
+  const grpOf = d => d.custom ? 'mine' : d.routine ? 'routines' : d.sound ? 'sound' : d.live ? 'live' : d.cat === 'Christmas' ? 'christmas' : d.cat === 'Cozy' ? 'cozy' : d.cat === 'Party' ? 'party' : 'everyday';
   function buildFx() {
     if (!FX_GROUPS.some(g => g[0] === prefs.fxCat)) prefs.fxCat = 'everyday';
     els.fxCats.replaceChildren(...FX_GROUPS.map(([id, name]) => {
@@ -2169,7 +2235,9 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       const wrap = document.createElement('div'); wrap.className = 'fav';
       const x = document.createElement('button'); x.className = 'x'; x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Delete the effect ' + d.name);
       x.addEventListener('click', () => deleteCustom(d.id));
-      wrap.append(fxCard(d), x);
+      const sh = document.createElement('button'); sh.className = 'share'; sh.type = 'button'; sh.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'; sh.setAttribute('aria-label', 'Copy a share link for ' + d.name); sh.title = 'Copy a share link';
+      sh.addEventListener('click', () => { const c = customFx.find(o => o.id === d.id); if (c) copyShare({ t: 'fx', n: c.name, c: c.colors, s: c.style }); });
+      wrap.append(fxCard(d), x, sh);
       return wrap;
     });
     if (prefs.fxCat === 'mine') {
@@ -2358,7 +2426,21 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
       { name: 'Wake up', mode: 'white', kelvin: 5500 },
       { name: 'Bedtime', mode: 'color', hex: '#ff3a00' }
     ]},
-    mine: { name: 'Mine', get list() { return favorites.map(f => ({ name: favLabel(f), mode: f.mode, hex: f.hex, kelvin: f.kelvin })); } },
+    mine: { name: 'Mine', get list() { return favorites.map(f => ({ name: favLabel(f), mode: f.mode, hex: f.hex, kelvin: f.kelvin, fid: f.id })); } },
+    holidays: { name: 'Holidays', list: [
+      { name: 'New Year gold', mode: 'color', hex: '#ffc94d' },
+      { name: 'Lunar New Year', mode: 'color', hex: '#e00020' },
+      { name: 'Valentine', mode: 'color', hex: '#ff2d6f' },
+      { name: 'Rose petal', mode: 'color', hex: '#ff7aa8' },
+      { name: 'St. Patrick', mode: 'color', hex: '#18c050' },
+      { name: 'Easter pastel', mode: 'color', hex: '#ffb8e6' },
+      { name: 'Fête nationale', mode: 'color', hex: '#1f5bff' },
+      { name: 'Canada Day', mode: 'color', hex: '#ff1a1a' },
+      { name: 'Halloween', mode: 'color', hex: '#ff6a00' },
+      { name: 'Witch green', mode: 'color', hex: '#7aff2d' },
+      { name: 'Diwali', mode: 'color', hex: '#ff9a1f' },
+      { name: 'Hanukkah', mode: 'color', hex: '#3d6bff' }
+    ]},
     moods: { name: 'Moods', list: [
       { name: 'Sunset', mode: 'color', hex: '#ff6a2b' },
       { name: 'Ocean', mode: 'color', hex: '#0aa2ff' },
@@ -2404,7 +2486,14 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   function renderScenes() {
     if (!SCENES[prefs.sceneCat]) prefs.sceneCat = 'christmas';
     els.sceneCats.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.cat === prefs.sceneCat)));
-    els.sceneGrid.replaceChildren(...SCENES[prefs.sceneCat].list.map(sceneCard));
+    els.sceneGrid.replaceChildren(...SCENES[prefs.sceneCat].list.map(sc => {
+      if (!sc.fid) return sceneCard(sc);
+      const wrap = document.createElement('div'); wrap.className = 'fav';
+      const sh = document.createElement('button'); sh.className = 'share'; sh.type = 'button'; sh.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'; sh.setAttribute('aria-label', 'Copy a share link for ' + sc.name); sh.title = 'Copy a share link';
+      sh.addEventListener('click', () => copyShare({ t: 'fav', n: sc.name, m: sc.mode, h: sc.hex, k: sc.kelvin }));
+      wrap.append(sceneCard(sc), sh);
+      return wrap;
+    }));
     const xn = prefs.sceneCat === 'christmas' && typeof christmasNote === 'function' ? christmasNote() : '';
     els.sceneNote.textContent = xn ? xn + '. Each scene fades in and stays, even after you close Iris.' : 'A scene sets one steady color and fades into it. The lamp keeps it, even after you close Iris.';
     if (!els.sceneGrid.children.length) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Nothing here yet. Pick a color you love in the Color tab, then click “Save current”.'; els.sceneGrid.append(e); }
@@ -2665,6 +2754,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   }
   let wxTry = 0;
   function tickSchedule() {
+    if (prefs.theme === 'sun' && (document.documentElement.dataset.theme === 'dark') !== sunDark()) applyTheme();
     // Keep sun times fresh for sunrise and sunset entries.
     if (prefs.loc && Date.now() - wxTry > 30 * 60000 && (!wx || Date.now() - wx.at > 6 * 3600e3)) { wxTry = Date.now(); fetchWeather(true); }
     if (!ready) return;
@@ -2735,11 +2825,13 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   els.catchUp.addEventListener('change', () => { prefs.catchUp = els.catchUp.checked; savePrefs(); });
 
   // ---------- Settings ----------
+  // "Sun": dark from sunset to sunrise (real times with a city set, otherwise 7:00 to 17:00).
+  function sunDark() { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m < sunMin('sunrise') || m >= sunMin('sunset'); }
   function applyTheme() {
     if (prefs.theme === 'auto') delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = prefs.theme;
+    else document.documentElement.dataset.theme = prefs.theme === 'sun' ? (sunDark() ? 'dark' : 'light') : prefs.theme;
     els.themeSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === prefs.theme)));
-    const dark = prefs.theme === 'dark' || (prefs.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    const dark = prefs.theme === 'dark' || (prefs.theme === 'sun' && sunDark()) || (prefs.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.querySelector('meta[name="theme-color"]').content = dark ? '#0b0a09' : '#f2efe9';
   }
   els.themeSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { prefs.theme = b.dataset.theme; savePrefs(); applyTheme(); }));
@@ -3140,6 +3232,149 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     prefs.scapeVol = +els.scapeVol.value; savePrefs();
     if (scape.master && !scape.detached) scape.master.gain.setTargetAtTime(prefs.scapeVol / 100, audioCtx.currentTime, .1);
   });
+
+  // ---------- Voice control (V): English and French ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false, voiceHideT = null;
+  const norm = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ').replace(/[^a-z0-9% ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const VOICE_COLORS = [
+    [/\b(red|rouge)\b/, '#ff1a1a', 'Red'], [/\b(orange)\b/, '#ff7a1f', 'Orange'], [/\b(yellow|jaune)\b/, '#ffd000', 'Yellow'],
+    [/\b(green|vert|verte)\b/, '#18d860', 'Green'], [/\b(turquoise|cyan|teal)\b/, '#00d8d0', 'Turquoise'], [/\b(blue|bleu|bleue)\b/, '#1f5bff', 'Blue'],
+    [/\b(purple|violet|violette|mauve)\b/, '#8b4dff', 'Purple'], [/\b(pink|rose)\b/, '#ff4f9a', 'Pink'], [/\b(gold|golden|or|dore|doree)\b/, '#ffb300', 'Gold']
+  ];
+  const VOICE_FX = [
+    [/\b(christmas|noel)\b/, 'twinkle'], [/\b(fire|fireplace|feu|foyer)\b/, 'fireplace'], [/\b(rain|pluie)\b/, 's_rain'], [/\b(ocean|waves?|vagues?|mer)\b/, 's_ocean'],
+    [/\b(rainbow|arc en ciel)\b/, 'rainbow'], [/\b(party|fete|disco)\b/, 'party'], [/\b(sunrise|lever du soleil)\b/, 'sunrise'], [/\b(sunset|coucher du soleil)\b/, 'sunset'],
+    [/\b(aurora|aurore)\b/, 'aurora'], [/\b(candle|bougie|chandelle)\b/, 'candle'], [/\b(snow|neige)\b/, 'snow'], [/\b(follow the day|suivre la journee|journee)\b/, 'daylight'],
+    [/\b(weather|meteo)\b/, 'weather'], [/\b(wind down|detente du soir|dodo|bonne nuit|good night)\b/, 'r_wind'], [/\b(movie|film|cinema)\b/, 'r_movie']
+  ];
+  function runVoice(alts) {
+    for (const raw of alts) {
+      const t = norm(raw), done = [];
+      if (!t) continue;
+      if (/\b(undo|annule|annuler)\b/.test(t)) { undo(); return say(raw, 'undo'); }
+      if (/\b(stop|arrete|arreter)\b/.test(t) && fx) { stopEffect(true); return say(raw, 'stopped the effect'); }
+      if (/\b(turn off|switch off|lights? off|eteins|eteindre|eteint|ferme|fermer)\b/.test(t) || /\boff$/.test(t)) { setPower(false); return say(raw, 'off'); }
+      if (/\b(busy|occupe|ne pas deranger|do not disturb)\b/.test(t)) { toggleBusy(); return say(raw, 'busy light'); }
+      if (/\b(surprise|hasard|random)\b/.test(t)) { surprise(); return say(raw, 'a surprise color'); }
+      if (/\b(focus|concentration|travail)\b/.test(t)) { setWhite(5000, { label: 'Focus', fade: true }); done.push('Focus'); }
+      else if (/\b(relax|detente|calme)\b/.test(t)) { setWhite(2700, { label: 'Relax', fade: true }); done.push('Relax'); }
+      else if (/\b(warm|chaud|chaude|chaleureux)\b/.test(t)) { setWhite(2700, { label: 'Warm white', fade: true }); done.push('warm white'); }
+      else if (/\b(cool|cold|froid|froide)\b/.test(t)) { setWhite(6500, { label: 'Cool white', fade: true }); done.push('cool white'); }
+      else if (/\b(white|blanc|blanche)\b/.test(t)) { setWhite(4000, { label: 'White', fade: true }); done.push('white'); }
+      else {
+        const c = VOICE_COLORS.find(([re]) => re.test(t));
+        if (c) { setColor(c[1], { label: c[2], fade: true }); done.push(c[2].toLowerCase()); }
+        else { const f = VOICE_FX.find(([re]) => re.test(t)); if (f && FX[f[1]]) { startEffect(f[1]); done.push(FX[f[1]].name); } }
+      }
+      const pc = /(\d{1,3})\s*(%|percent|pour ?cent|pourcent)/.exec(t);
+      if (pc) { setBri(Math.round(clamp(+pc[1], 1, 100) / 100 * 254)); done.push(pc[1] + '%'); }
+      else if (/\b(brighter|plus fort|plus clair|augmente|monte|plus de lumiere)\b/.test(t)) { setBri(light.bri + 50); done.push('brighter'); }
+      else if (/\b(dimmer|darker|moins fort|plus sombre|baisse|tamise|diminue)\b/.test(t)) { setBri(light.bri - 50); done.push('dimmer'); }
+      else if (/\b(max|maximum|full|a fond)\b/.test(t)) { setBri(FULL); done.push('100%'); }
+      if (!done.length && /\b(turn on|switch on|lights? on|allume|allumer|ouvre)\b/.test(t)) { setPower(true); done.push('on'); }
+      if (done.length) return say(raw, done.join(', '));
+      // Last try: the closest match among everything the search knows.
+      const words = t.split(' ').filter(w => w.length > 2);
+      let best = null, bestScore = 0;
+      for (const it of cmdItems()) { const sc = words.filter(w => it.s.includes(w)).length / Math.max(2, words.length); if (sc > bestScore) { best = it; bestScore = sc; } }
+      if (best && bestScore >= .5) { best.run(); return say(raw, best.t); }
+    }
+    say(alts[0] || '', null);
+  }
+  function say(heard, did) {
+    els.voiceText.textContent = did ? '“' + heard + '” → ' + did : 'Didn’t catch “' + heard + '”. Try “red”, “fireplace” or “50%”.';
+    els.voicePill.hidden = false; clearTimeout(voiceHideT); voiceHideT = setTimeout(() => { if (!listening) els.voicePill.hidden = true; }, 3200);
+    log('Voice: “' + heard + '”' + (did ? ' → ' + did : ' (not understood)'));
+  }
+  function toggleVoice() {
+    if (!SR) { toast('Voice control needs Chrome or Edge.', true); return; }
+    if (listening) { try { rec.stop(); } catch {} return; }
+    rec = new SR();
+    rec.lang = /^fr/i.test(navigator.language || '') ? navigator.language : (navigator.language || 'en-US');
+    rec.interimResults = true; rec.maxAlternatives = 3; rec.continuous = false;
+    rec.onresult = e => {
+      const r = e.results[e.results.length - 1];
+      els.voiceText.textContent = r[0].transcript + (r.isFinal ? '' : '…');
+      if (r.isFinal) runVoice([...r].map(a => a.transcript));
+    };
+    rec.onerror = e => {
+      const m = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Microphone permission refused.' : e.error === 'no-speech' ? 'I didn’t hear anything.' : e.error === 'network' ? 'Voice control needs an internet connection.' : e.error === 'aborted' ? '' : 'Voice control stopped: ' + e.error;
+      if (m) toast(m, e.error !== 'no-speech');
+    };
+    rec.onend = () => { listening = false; els.voiceBtn.classList.remove('on'); clearTimeout(voiceHideT); voiceHideT = setTimeout(() => { els.voicePill.hidden = true; }, 2600); };
+    try { rec.start(); } catch { return; }
+    listening = true; els.voiceBtn.classList.add('on');
+    els.voiceText.textContent = /^fr/i.test(rec.lang) ? 'J’écoute… dis « rouge », « feu de foyer » ou « 50 % »' : 'Listening… say “red”, “fireplace” or “50%”';
+    els.voicePill.hidden = false;
+  }
+  els.voiceBtn.hidden = !SR;
+  els.voiceBtn.addEventListener('click', toggleVoice);
+
+  // ---------- Share links ----------
+  const b64 = { enc: o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                dec: t => JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g, '+').replace(/_/g, '/'))))) };
+  async function copyShare(o) {
+    const url = location.origin + location.pathname + '#share=' + b64.enc(o);
+    try { await navigator.clipboard.writeText(url); toast('Link copied. Anyone with Iris can open it to add “' + o.n + '”.'); }
+    catch { prompt('Copy this link:', url); }
+  }
+  let shared = null;
+  function readShare() {
+    const m = /#share=([A-Za-z0-9_-]+)/.exec(location.hash);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    try {
+      const o = b64.dec(m[1]);
+      const okHex = h => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h);
+      const name = String(o.n || '').slice(0, 26) || 'Shared light';
+      if (o.t === 'fx' && Array.isArray(o.c) && o.c.length >= 2 && o.c.length <= 6 && o.c.every(okHex)) shared = { t: 'fx', name, colors: o.c.map(h => h.toLowerCase()), style: FX_STYLES[o.s] ? o.s : 'glide' };
+      else if (o.t === 'fav' && (o.m === 'white' ? +o.k >= 2000 && +o.k <= 6500 : okHex(o.h))) shared = { t: 'fav', name, mode: o.m === 'white' ? 'white' : 'color', hex: okHex(o.h) ? o.h.toLowerCase() : '#ffffff', kelvin: clamp(+o.k || 4000, 2000, 6500) };
+      else throw new Error('bad');
+    } catch { toast('That share link is damaged.', true); return; }
+    const cols = shared.t === 'fx' ? shared.colors : [displayHex(shared), displayHex(shared)];
+    els.sharePrev.style.setProperty('--g', 'linear-gradient(90deg,' + [...cols, cols[0]].join(',') + ')');
+    els.shareText.textContent = (shared.t === 'fx' ? 'An effect' : 'A favorite') + ' called “' + shared.name + '”. Add it to your ' + (shared.t === 'fx' ? 'effects (Effects → Mine)?' : 'favorites (Scenes → Mine)?');
+    openDialog(els.shareDlg);
+  }
+  els.shareTry.addEventListener('click', () => {
+    if (!shared) return;
+    if (shared.t === 'fx') { FX.c_try = customDef({ id: 'c_try', name: shared.name, colors: shared.colors, style: shared.style }); startEffect('c_try'); }
+    else applyState({ on: true, ...shared, label: shared.name });
+  });
+  els.shareAdd.addEventListener('click', () => {
+    if (!shared) return;
+    if (fx && fx.id === 'c_try') stopEffect(false);
+    if (shared.t === 'fx') {
+      const c = { id: 'c_' + Date.now().toString(36), name: shared.name, colors: shared.colors, style: shared.style };
+      customFx.push(c); if (customFx.length > 18) customFx.shift(); store.set('customFx', customFx);
+      syncCustom(); fillFxSelect(); prefs.fxCat = 'mine'; savePrefs(); buildFx(); startEffect(c.id);
+    } else {
+      favorites.push({ id: Date.now().toString(36), mode: shared.mode, hex: shared.hex, kelvin: shared.kelvin, bri: FULL, label: shared.name });
+      if (favorites.length > 24) favorites.shift(); saveFavs(); renderFavs();
+      applyState({ on: true, mode: shared.mode, hex: shared.hex, kelvin: shared.kelvin, label: shared.name });
+    }
+    log('Added “' + shared.name + '” from a share link.', false, 'ok', true);
+    shared = null; els.shareDlg.close();
+  });
+  els.shareDlg.addEventListener('close', () => { if (fx && fx.id === 'c_try' && shared) stopEffect(true); shared = null; });
+
+  // ---------- Hourly pulse ----------
+  let pulseHour = -1;
+  async function hourPulse() {
+    const d = new Date();
+    if (!prefs.hourPulse || d.getMinutes() !== 0 || pulseHour === d.getHours()) return;
+    pulseHour = d.getHours();
+    if (!ready || !light.on || fx || flashing || alarm || breath || fadeTok || awayState || (awake && awake.pending)) return;
+    const b = light.bri, low = Math.max(20, Math.round(b * .3));
+    const glowTo = (v, ms) => { root.setProperty('--fade', ms + 'ms'); root.setProperty('--glow', (v / 254).toFixed(3)); };
+    glowTo(low, 1300); await fadeSend(null, low, null, 1300);
+    if (light.bri === b && !fx) { glowTo(b, 1500); await fadeSend(null, b, null, 1500); }
+    log('Hourly pulse: ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.');
+  }
+  setInterval(hourPulse, 20000);
+  els.hourSw.checked = prefs.hourPulse;
+  els.hourSw.addEventListener('change', () => { prefs.hourPulse = els.hourSw.checked; savePrefs(); if (prefs.hourPulse) toast('The lamp will dip gently at the start of each hour.'); });
 
   // ---------- Usage stats ----------
   let usage = store.get('usage', {});
@@ -3597,6 +3832,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     add('Colors from a photo', 'Action', null, () => els.photoFile.click(), 'picture image');
     add('Surprise me', 'Action', 'conic-gradient(#ff3d6e, #ffd23d, #3dd6ff, #7a5cff, #ff3d6e)', surprise, 'random color');
     add('Usage stats', 'Help', null, openStats, 'hours energy week');
+    if (SR) add('Speak to Iris', 'Action', null, toggleVoice, 'voice microphone talk');
+    for (const th of ['sun']) add('Theme: Sun (dark at night)', 'App', null, () => { prefs.theme = th; savePrefs(); applyTheme(); }, 'appearance mode night');
     add('Diagnostics', 'Help', null, () => openDialog(els.diagDlg));
     add('Activity log', 'Help', null, () => openDialog(els.logDlg), 'history');
     add('Pairing steps', 'Help', null, () => { fillPairSteps(); pairAuto = false; openDialog(els.pairDlg); });
@@ -3819,6 +4056,7 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
     else if ((e.key === 'm' || e.key === 'M') && prefs.mini) openMini();
     else if (e.key === 'b' || e.key === 'B') toggleBusy();
     else if (e.key === 'r' || e.key === 'R') surprise();
+    else if (e.key === 'v' || e.key === 'V') toggleVoice();
   });
 
   // ---------- App shortcuts (taskbar jump list) ----------
@@ -3855,6 +4093,8 @@ dialog.cmd{ width:min(620px, calc(100vw - 28px)); margin-top:min(13vh, 120px); o
   showTab(prefs.tab);
   render();
   runLaunchAction(location.href);
+  readShare();
+  window.addEventListener('hashchange', readShare);
 
   if (navigator.bluetooth && navigator.bluetooth.getAvailability) {
     navigator.bluetooth.getAvailability().then(ok => { if (!ok) log('Bluetooth looks turned off on this computer.', true); }).catch(() => {});
